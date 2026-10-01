@@ -1,0 +1,19 @@
+[9148:57596:0928/104202.463:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:241] No machine level policy manager exists.
+[9148:57596:0928/104202.862:WARNING:chrome\browser\extensions\external_registry_loader_win.cc:236] Error observing HKLM: Access is denied. (0x5)
+[9148:57596:0928/104205.371:INFO:CONSOLE:495] "[vite] connecting...", source: http://localhost:5173/@vite/client (495)
+[9148:57596:0928/104205.397:INFO:CONSOLE:618] "[vite] connected.", source: http://localhost:5173/@vite/client (618)
+[9148:57596:0928/104206.127:INFO:CONSOLE:21551] "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold", source: http://localhost:5173/node_modules/.vite/deps/chunk-PJEEZAML.js?v=6956217a (21551)
+[9148:57596:0928/104206.894:INFO:CONSOLE:4417] "⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.", source: http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6956217a (4417)
+[9148:57596:0928/104206.894:INFO:CONSOLE:4417] "⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.", source: http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=6956217a (4417)
+[9148:31776:0928/104207.931:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[9148:31776:0928/104208.225:ERROR:google_apis\gcm\engine\mcs_client.cc:702]   Error code: 401  Error message: Authentication Failed: wrong_secret
+[9148:31776:0928/104208.225:ERROR:google_apis\gcm\engine\mcs_client.cc:704] Failed to log in to GCM, resetting connection.
+[9148:56512:0928/104221.803:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 44948: Access is denied. (0x5)
+[9148:8312:0928/104221.809:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 44948: Access is denied. (0x5)
+[9148:56512:0928/104222.036:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 33796: Access is denied. (0x5)
+[9148:8312:0928/104222.227:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 60748: Access is denied. (0x5)
+[9148:56512:0928/104222.425:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 45812: Access is denied. (0x5)
+[9148:8312:0928/104222.709:ERROR:chrome\updater\ipc\update_service_dialer_win.cc:75] Failed to open named pipe server process 17344: Access is denied. (0x5)
+Created TensorFlow Lite XNNPACK delegate for CPU.
+[9148:31776:0928/104229.541:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[9148:56512:0928/104233.474:INFO:chrome\browser\extensions\extension_garbage_collector.cc:212] Garbage collection for extensions on file thread is complete.

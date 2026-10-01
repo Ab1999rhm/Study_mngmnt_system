@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>seed</title></head>
+<body>
+<script>
+  const grades = new URLSearchParams(location.search).get('g') || '8';
+  const db = {
+    users: [
+      { id: 'stu_test', role: 'student', fullName: 'Test Student', schoolName: 'Test School',
+        directorName: 'Dir', grade: grades, email: 't@t.t', password: 'x',
+        points: 120, favorites: [0, 2],
+        progress: { 'Mathematics:1': 'done' }, scores: [
+          { id: 's1', studentId: 'stu_test', subject: 'Mathematics', chapter: 'Chapter 1', score: 32, total: 40, points: 160, at: new Date(Date.now()-86400000*6).toISOString() },
+          { id: 's2', studentId: 'stu_test', subject: 'English', chapter: 'Chapter 2', score: 21, total: 40, points: 105, at: new Date(Date.now()-86400000*3).toISOString() },
+          { id: 's3', studentId: 'stu_test', subject: 'Science', chapter: 'Chapter 1', score: 36, total: 40, points: 180, at: new Date().toISOString() }
+        ], joinedAt: new Date().toISOString(), packageOpen: true, aiEnabled: true },
+      { id: 'stu_2', role: 'student', fullName: 'Second Student', schoolName: 'Other', directorName: 'Dir', grade: '12', email: 't2@t.t', password: 'x', points: 300, favorites: [], progress: {}, scores: [], joinedAt: new Date().toISOString(), packageOpen: false, aiEnabled: false },
+      { id: 'adm_t', role: 'admin', fullName: 'Admin', email: 'admin@ssa.local', password: 'admin123', joinedAt: new Date().toISOString() },
+      { id: 'dir_t', role: 'director', fullName: 'Dir', schoolName: 'S', email: 'director@ssa.local', password: 'director123', joinedAt: new Date().toISOString() }
+    ],
+    reports: [
+      { id: 'r1', studentId: 'stu_test', subject: 'Mathematics', chapter: 'Chapter 1', score: 32, total: 40, points: 160, at: new Date(Date.now()-86400000*6).toISOString() },
+      { id: 'r2', studentId: 'stu_test', subject: 'English', chapter: 'Chapter 2', score: 21, total: 40, points: 105, at: new Date(Date.now()-86400000*3).toISOString() },
+      { id: 'r3', studentId: 'stu_test', subject: 'Science', chapter: 'Chapter 1', score: 36, total: 40, points: 180, at: new Date().toISOString() }
+    ],
+    uploads: [
+      { id: 'up_t1', type: 'book', title: 'Test Book', subject: 'Mathematics', grade: 'all', link: '', body: 'Body of test book.', fileName: null, fileData: null, price: 100, free: false, createdAt: new Date().toISOString() },
+      { id: 'up_t2', type: 'video', title: 'Test Video', subject: 'Science', grade: 'all', link: 'https://www.youtube.com/', body: '', fileName: null, fileData: null, price: 50, free: false, createdAt: new Date().toISOString() },
+      { id: 'up_t3', type: 'material', title: 'Test Notes', subject: 'English', grade: 'all', link: '', body: 'Notes body.', fileName: null, fileData: null, price: 75, free: true, createdAt: new Date().toISOString() },
+      { id: 'up_t4', type: 'exam', title: 'Test Model Exam', subject: 'Science', grade: 'all', link: '', body: 'Exam body.', fileName: null, fileData: null, price: 90, free: false, createdAt: new Date().toISOString() },
+      { id: 'up_t5', type: 'test', title: 'Playable Quiz', subject: 'Science', grade: 'all', link: '', body: '', fileName: null, fileData: null, price: 40, free: false, hidden: false,
+        questions: [
+          { type: 'mcq', q: 'What is H2O?', options: ['Water', 'Salt', 'Acid'], answer: 'Water' },
+          { type: 'mcq', q: 'Planet closest to the Sun?', options: ['Venus', 'Mercury', 'Earth'], answer: 'Mercury' }
+        ], createdAt: new Date().toISOString() }
+    ],
+    codes: [
+      { code: 'XYZ789', plan: 'full', planLabel: 'Full access — all content', price: 500, usedBy: null, usedAt: null, revoked: false, expiresAt: null, createdAt: new Date().toISOString() }
+    ],
+    payRequests: [
+      { id: 'pr_t1', studentId: 'stu_test', plan: 'item', itemId: 'up_t1', planLabel: 'Test Book', price: 100, status: 'pending', at: new Date().toISOString() }
+    ],
+    settings: { payPhone: '+251 91 111 2233' },
+    announcements: [{ id: 'an_t1', text: 'Mid-term exams start next week.', at: new Date().toISOString() }],
+    videos: []
+  };
+  const u = new URLSearchParams(location.search).get('user');
+  db.session = u === 'none' ? null : (u || 'stu_test');
+  localStorage.setItem('ssa_db_v1', JSON.stringify(db));
+  const lang = new URLSearchParams(location.search).get('lang');
+  if (lang) localStorage.setItem('ssa_lang', lang); else localStorage.removeItem('ssa_lang');
+  location.replace('/' + location.search + location.hash);
+</script>
+</body></html>

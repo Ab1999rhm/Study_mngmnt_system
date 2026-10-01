@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+shots/
+devlog.txt
+*.log
+
+# local run / tunnel artifacts
+*.exe
+lt*.txt
+tunnel*
+previewlog.txt
+temp/tunneldb.json
+*.bak
