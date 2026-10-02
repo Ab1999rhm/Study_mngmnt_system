@@ -268,8 +268,8 @@ async function main() {
   await sleep(700);
   await shot('13-admin-phone-drawer-375');
 
-  // ================= C. AI LESSON FLOW =================
-  console.log('--- C. AI flow (student) ---');
+  // ================= C. REAL CONTENT FLOW (student) =================
+  console.log('--- C. real content flow (student) ---');
   await setSize(1440, 900, false);
   const STUD = BASE + '/seed-test.html?user=stu_test#/student/learn';
   const e1 = errCount();
@@ -282,54 +282,49 @@ async function main() {
     points: ((document.body.innerText.match(/(\\d+)\\s*Points/) || [])[1]) || '0',
     text: (document.body.innerText || '').replace(/\\s+/g, ' ').slice(0, 160)
   })`);
-  check('AI: subject list renders', ai1.banner && ai1.cards >= 3, JSON.stringify(ai1));
+  check('AI: subject list renders from uploads', ai1.banner && ai1.cards >= 3, JSON.stringify(ai1));
   await shot('20-ai-subjects');
 
-  // enter first subject
+  // enter first subject -> uploaded items grid (demo chapter rows are gone)
   await evalJs(`document.querySelector('.subject-card').closest('a').click()`);
-  await waitFor('document.querySelectorAll(".chapter-row").length > 0');
-  await sleep(300);
-  const ai2 = await evalJs(`({ chapters: document.querySelectorAll('.chapter-row').length, hash: location.hash })`);
-  check('AI: chapter list renders', ai2.chapters >= 1, JSON.stringify(ai2));
-  await shot('21-ai-chapters');
-
-  // start first chapter
-  await evalJs(`(() => { const b = [...document.querySelectorAll('.chapter-row .btn')][0]; b.click(); return 1; })()`);
-  await waitFor('[...document.querySelectorAll("button")].some(b => /start lesson/i.test(b.textContent))');
-  await sleep(300);
-  const ai3 = await evalJs(`({
-    banner: !!document.querySelector('.ai-banner'),
-    buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()).slice(0, 14),
-    iframe: !!document.querySelector('iframe')
+  await waitFor('location.hash.indexOf("/student/learn/") >= 0');
+  await sleep(400);
+  const ai2 = await evalJs(`({
+    items: document.querySelectorAll('.subject-card').length,
+    chapters: document.querySelectorAll('.chapter-row').length,
+    hasStudyBtn: [...document.querySelectorAll('.subject-card button')].some(b => /study|open/i.test(b.textContent)),
+    hash: location.hash
   })`);
-  check('AI: lesson welcome renders', ai3.banner && ai3.buttons.some(x => /start lesson/i.test(x)), JSON.stringify(ai3));
-  await shot('22-ai-welcome');
+  check('AI: subject items render (uploaded materials)', ai2.items >= 1 && ai2.chapters === 0 && ai2.hasStudyBtn, JSON.stringify(ai2));
+  await shot('21-ai-items');
 
-  // begin lesson
-  await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /start lesson/i.test(x.textContent)); b.click(); return 1; })()`);
-  await waitFor('document.querySelectorAll(".subsection").length > 0');
-  await sleep(300);
-  const ai4 = await evalJs(`({
-    subs: document.querySelectorAll('.subsection').length,
-    buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()).slice(0, 12)
+  // exams page: real uploaded tests only, demo exam generators removed
+  await evalJs(`location.hash = '#/student/exams'`);
+  await waitFor('document.body.innerText.includes("Playable Quiz")');
+  await sleep(500);
+  const aiX = await evalJs(`({
+    quizCard: document.body.innerText.includes('Playable Quiz'),
+    modelExam: document.body.innerText.includes('Test Model Exam'),
+    fullMock: document.body.innerText.includes('Full Mock Exam'),
+    hash: location.hash
   })`);
-  check('AI: lesson subsections render', ai4.subs >= 1, JSON.stringify(ai4));
-  await shot('23-ai-lessons');
+  check('AI: exams page lists uploaded tests only', aiX.quizCard && aiX.modelExam && !aiX.fullMock, JSON.stringify(aiX));
+  await shot('22-ai-exams');
 
-  // to lesson quiz
-  await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => !/back/i.test(x.textContent) && /quiz/i.test(x.textContent)); b.click(); return 1; })()`);
+  // take the uploaded test
+  await evalJs(`(() => { const c = [...document.querySelectorAll('.subject-card')].find(x => x.innerText.includes('Playable Quiz')); if (c) c.click(); return !!c; })()`);
   await waitFor('!!document.querySelector(".quiz-q")');
   await sleep(300);
   const ai5 = await evalJs(`({
     quiz: !!document.querySelector('.quiz-q'),
     qtext: (document.querySelector('.qtext') || {}).textContent || '',
     opts: document.querySelectorAll('.opt').length,
-    buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()).slice(0, 12)
+    count: (document.body.innerText.match(/Question \\d+ \\/ \\d+/) || [''])[0]
   })`);
-  check('AI: lesson quiz renders', ai5.quiz && (ai5.opts > 0 || !!ai5.qtext), JSON.stringify(ai5));
-  await shot('24-ai-quiz');
+  check('AI: uploaded test opens as a quiz', ai5.quiz && (ai5.opts > 0 || !!ai5.qtext), JSON.stringify(ai5));
+  await shot('23-ai-quiz');
 
-  // drive quiz: answer + next until result
+  // drive the test to its result
   let driven = 0;
   for (let i = 0; i < 40 && driven === 0; i++) {
     const st = await evalJs(`(() => {
@@ -361,7 +356,7 @@ async function main() {
       if (fin) { fin.click(); return { clicked: 'finish' }; }
       return { stuck: true, text: (document.querySelector('.result-box') ? 'result' : document.body.innerText.slice(0, 120)) };
     })()`);
-    if (st.done || st.stuck) { if (st.stuck) check('AI: quiz drive progress', false, JSON.stringify(st)); break; }
+    if (st.done || st.stuck) { if (st.stuck) check('AI: test drive progress', false, JSON.stringify(st)); break; }
     await sleep(350);
   }
   await sleep(800);
@@ -370,84 +365,20 @@ async function main() {
     resultText: (document.querySelector('.result-box') || {}).innerText || '',
     buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()).slice(0, 12)
   })`);
-  check('AI: quiz completes to result', ai6.result, JSON.stringify(ai6));
-  await shot('25-ai-quiz-result');
+  check('AI: uploaded test completes to result', ai6.result, JSON.stringify(ai6));
+  await shot('24-ai-quiz-result');
 
-  // finish → next stage (exam or remediate)
+  // finish -> completion screen
   await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /finish/i.test(x.textContent)); if (b) b.click(); return 1; })()`);
-  await sleep(1500);
-  const ai7 = await evalJs(`({
-    exam: document.body.innerText.includes('/ 40') || document.querySelectorAll('.quiz-q').length > 0,
-    remediate: !!document.querySelector('.note-box.anim-pop'),
-    text: (document.body.innerText || '').replace(/\\s+/g, ' ').slice(0, 200),
-    buttons: [...document.querySelectorAll('button')].map(b => b.textContent.trim()).slice(0, 10)
-  })`);
-  check('AI: routes to exam or remediation after quiz', ai7.exam || ai7.remediate, JSON.stringify(ai7));
-  await shot('26-ai-after-quiz');
-
-  // continue (if remediated) → chapter exam
-  if (!ai7.exam) {
-    await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /continue/i.test(x.textContent)); if (b) b.click(); return 1; })()`);
-    await waitFor('!!document.querySelector(".quiz-q")');
-    await sleep(300);
-  }
-  const ai8 = await evalJs(`({
-    quiz: !!document.querySelector('.quiz-q'),
-    count: (document.body.innerText.match(/Question \\d+ \\/ \\d+/) || [''])[0],
-    title: (document.querySelector('h2') || {}).textContent || ''
-  })`);
-  check('AI: chapter exam opens', ai8.quiz && /40/.test(ai8.count), JSON.stringify(ai8));
-  await shot('27-ai-exam');
-
-  // drive the 40-question exam to its result
-  let examDone = false;
-  for (let i = 0; i < 500 && !examDone; i++) {
-    const st = await evalJs(`(() => {
-      if (document.querySelector('.result-box')) return { done: true };
-      const opts = document.querySelectorAll('.opt');
-      if (opts.length && !document.querySelector('.opt.sel')) { opts[0].click(); return { clicked: 'opt' }; }
-      const inp = document.querySelector('.quiz-q input');
-      if (inp && !inp.value) {
-        const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-        s.call(inp, 'test answer here'); inp.dispatchEvent(new Event('input', { bubbles: true }));
-        return { clicked: 'input' };
-      }
-      const ta = document.querySelector('.quiz-q textarea');
-      if (ta && !ta.value) {
-        const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-        s.call(ta, 'test answer words length'); ta.dispatchEvent(new Event('input', { bubbles: true }));
-        return { clicked: 'textarea' };
-      }
-      const sel = document.querySelector('.quiz-q select');
-      if (sel && !sel.value) {
-        const s = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-        const o = [...sel.options].find(x => x.value);
-        s.call(sel, o.value); sel.dispatchEvent(new Event('change', { bubbles: true }));
-        return { clicked: 'select' };
-      }
-      const navBtn = [...document.querySelectorAll('button')].find(b => !b.disabled && /^(next|→|submit|finish)/i.test(b.textContent.trim()));
-      if (navBtn) { navBtn.click(); return { clicked: 'nav:' + navBtn.textContent.trim() }; }
-      return { stuck: true, text: (document.body.innerText || '').replace(/\\s+/g, ' ').slice(0, 140) };
-    })()`);
-    if (st.done) { examDone = true; break; }
-    if (st.stuck) { check('AI: exam drives forward', false, JSON.stringify(st)); break; }
-    await sleep(160);
-  }
-  check('AI: exam reaches result', examDone, 'examDone=' + examDone);
-  await shot('28-ai-exam-result');
-
-  // finish → completion screen
-  await evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /finish/i.test(x.textContent)); if (b) b.click(); return 1; })()`);
-  await sleep(1500);
+  await sleep(1200);
   const ai9 = await evalJs(`({
     ok: !!document.querySelector('.result-box.ok'),
-    points: (document.body.innerText.match(/(\\d+)\\s*Points/) || [])[1] || '',
     text: (document.body.innerText || '').replace(/\\s+/g, ' ').slice(0, 160)
   })`);
-  check('AI: chapter completion screen', ai9.ok, JSON.stringify(ai9));
-  await shot('29-ai-completed');
+  check('AI: test completion screen', ai9.ok, JSON.stringify(ai9));
+  await shot('25-ai-completed');
 
-  // points must be live in the header after the lesson (no navigation needed)
+  // points must be live in the header after the test (no navigation needed)
   const ptsMid = await evalJs(`((document.body.innerText.match(/(\\d+)\\s*Points/) || [])[1]) || '0'`);
   check('AI: header points update live', Number(ptsMid) > Number(ai1.points), ai1.points + ' -> ' + ptsMid);
 

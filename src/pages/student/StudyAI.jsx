@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { subjectsFor, buildAIIntro, buildSubsections, lessonQuiz, chapterExam } from '../../data/content.js';
+import { studentSubjects, subjectItems } from '../../data/curriculum.js';
 import { askTutor, appIntent, askTutorAI, loadBookCtx, clearBookCtx } from '../../data/tutor.js';
-import { store } from '../../data/store.js';
-import { lessonGraph, LESSON_WORKFLOW } from '../../data/aiGraph.js';
+import UploadCard from '../../components/UploadCard.jsx';
 
 export function TutorChat({ user }) {
   const { t, i18n } = useTranslation();
@@ -103,33 +102,34 @@ export function TutorChat({ user }) {
 }
 function SubjectList({ user }) {
   const { t } = useTranslation();
-  const subjects = subjectsFor(user.grade);
-  const progress = user.progress || {};
+  const subjects = studentSubjects(user);
 
   return (
     <>
       <div className="ai-banner">
         <h2>🤖 {t('aiTutor')} — {user.grade === 'remedial' ? t('remedial') : t('grade' + user.grade)}</h2>
-        <p>Pick a subject. The AI gives you an introduction, a simple study method, a weekly timetable, then teaches the chapter step by step — ending with a 5-question check and a 40-question chapter exam.</p>
+        <p>Real content uploaded by your school — pick a subject to read and watch with the study reader. Ask the AI tutor below anything about your course.</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-          {LESSON_WORKFLOW.map(c => <span key={c} className="chip info" style={{ fontSize: 11 }}>{c}</span>)}
+          {['📘 pick a subject', '📖 study reader', '📝 notes', '🧪 practice test'].map(c => <span key={c} className="chip info" style={{ fontSize: 11 }}>{c}</span>)}
         </div>
       </div>
+      {subjects.length === 0 && (
+        <div className="empty" data-testid="learn-empty">
+          <div className="ico">📭</div>
+          {t('noContentYet')}
+        </div>
+      )}
       <div className="grid cols3">
-        {subjects.map(s => {
-          const done = s.chapters.filter(c => progress[`${s.name}:${c.index}`] === 'done').length;
-          const pct = Math.round((done / s.chapters.length) * 100);
-          return (
-            <Link key={s.name} to={`/student/learn/${encodeURIComponent(s.name)}`} style={{ textDecoration: 'none' }}>
-              <div className="subject-card">
-                <div className="ico">📘</div>
-                <h3>{s.name}</h3>
-                <p>{done}/{s.chapters.length} {t('completed')} · {s.chapters.length} {t('chapter')}s</p>
-                <div className="bar"><i style={{ width: pct + '%' }} /></div>
-              </div>
-            </Link>
-          );
-        })}
+        {subjects.map(s => (
+          <Link key={s.name} to={`/student/learn/${encodeURIComponent(s.name)}`} style={{ textDecoration: 'none' }}>
+            <div className="subject-card">
+              <div className="ico">📘</div>
+              <h3>{s.name}</h3>
+              <p>{s.done}/{s.total} {t('completed')} · {s.total} {t('materials')}</p>
+              <div className="bar"><i style={{ width: s.pct + '%' }} /></div>
+            </div>
+          </Link>
+        ))}
       </div>
       <div style={{ marginTop: 22 }}>
 <TutorChat user={user} />
@@ -138,194 +138,22 @@ function SubjectList({ user }) {
   );
 }
 
-function ChapterList({ user }) {
+function SubjectItems({ user }) {
   const { subject } = useParams();
   const { t } = useTranslation();
+  const nav = useNavigate();
   const name = decodeURIComponent(subject);
-  const sub = subjectsFor(user.grade).find(s => s.name === name);
-  if (!sub) return <Navigate to="/student/learn" replace />;
-  const progress = user.progress || {};
+  const items = subjectItems(user, name);
+  if (!items.length) return <Navigate to="/student/learn" replace />;
 
   return (
     <>
       <Link to="/student/learn" style={{ fontSize: 14, color: 'var(--blue)', fontWeight: 600 }}>← {t('back')}</Link>
-      <h2 style={{ margin: '14px 0 18px' }}>📘 {sub.name}</h2>
-      {sub.chapters.map(c => {
-        const done = progress[`${sub.name}:${c.index}`] === 'done';
-        const quizDone = progress[`${sub.name}:${c.index}:quiz`];
-        return (
-          <div className="chapter-row" key={c.index}>
-            <div>
-              <h4>{t('chapter')} {c.index}: {c.title}</h4>
-              <div className="meta">
-                {t('lessons')}: {buildSubsections(c).length} · {t('lessonQuiz')}: {quizDone ? `${quizDone}/5 ✓` : '—'} · {t('chapterExam')}: {done ? '✓' : '—'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Link className="btn sm" to={`/student/learn/${encodeURIComponent(sub.name)}/${c.index}`} style={{ textDecoration: 'none' }}>
-                {quizDone || done ? t('continue') : t('start')}
-              </Link>
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function LessonFlow({ user }) {
-  const { subject, chapterIndex } = useParams();
-  const { t } = useTranslation();
-  const nav = useNavigate();
-  const name = decodeURIComponent(subject);
-  const sub = subjectsFor(user.grade).find(s => s.name === name);
-  const chapter = sub?.chapters.find(c => c.index === Number(chapterIndex));
-  const [node, setNode] = useState('welcome');
-  const [wf, setWf] = useState({ step: 0, lastScore: 0, review: false });
-  const step = wf.step;
-
-  if (!sub || !chapter) return <Navigate to="/student/learn" replace />;
-
-  const ai = buildAIIntro(sub.name, chapter, user.grade);
-  const subs = buildSubsections(chapter);
-  const quiz = useMemo(() => lessonQuiz(chapter), [chapter]);
-  const exam = useMemo(() => chapterExam(chapter), [chapter]);
-
-  // LangGraph-style transitions: nodes = UI stages, edges = events with
-  // conditional routing (quiz score < 3/5 → remediate node → exam).
-  const go = (event, payload) => {
-    const res = lessonGraph.next(node, { ...wf, ...(payload || {}) }, event);
-    if (res.node === 'END') return;
-    setNode(res.node);
-    setWf(res.state);
-  };
-
-  const steps = ['ai', 'subs', 'quiz', 'exam', 'done'];
-
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Link to={`/student/learn/${encodeURIComponent(sub.name)}`} style={{ fontSize: 14, color: 'var(--blue)', fontWeight: 600 }}>← {sub.name}</Link>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {steps.map((s, i) => (
-            <span key={s} style={{
-              width: 30, height: 6, borderRadius: 4,
-              background: i <= step ? 'var(--blue)' : 'var(--line)', display: 'block'
-            }} />
-          ))}
-        </div>
+      <h2 style={{ margin: '14px 0 6px' }}>📘 {name}</h2>
+      <p style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>{items.length} {t('materials')} · {t('offlineReady')}</p>
+      <div className="grid cols3 stagger">
+        {items.map(u => <UploadCard key={u.id} item={u} user={user} onPay={() => nav('/student/store')} />)}
       </div>
-
-      {step === 0 && (
-        <>
-          <div className="ai-banner">
-            <h2>🤖 {ai.welcome}</h2>
-            <p>All content for {sub.name} is cached for offline use.</p>
-          </div>
-          <div className="grid cols2">
-            <div className="card">
-              <h3 style={{ marginBottom: 14 }}>🧠 {t('introduction')}</h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.7, color: '#334155' }}>
-                {chapter.title} is one of the core topics in {sub.name} for this grade. You will master {chapter.terms.length} key terms
-                ({chapter.terms.slice(0, 4).map(x => x[0]).join(', ')}…) through a guided path: read → take notes → practice → test yourself.
-                The goal is understanding, not memorising: every term connects to the next.
-              </p>
-            </div>
-            <div className="card">
-              <h3 style={{ marginBottom: 14 }}>✅ {t('studyMethod')}</h3>
-              <ol className="method-list">
-                {ai.method.map((m, i) => <li key={i}>{m}</li>)}
-              </ol>
-            </div>
-          </div>
-          <div className="card" style={{ marginTop: 18 }}>
-            <h3 style={{ marginBottom: 14 }}>⏰ {t('timetable')}</h3>
-            <table className="tt-table">
-              <thead><tr><th>Day</th><th>Task</th><th>Time</th></tr></thead>
-              <tbody>
-                {ai.timetable.map(r => (
-                  <tr key={r.day}><td><b>{r.day}</b></td><td>{r.task}</td><td>{r.mins} min</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button className="btn" style={{ marginTop: 18 }} onClick={() => go('begin')}>{t('startLesson')} →</button>
-        </>
-      )}
-
-      {step === 1 && (
-        <>
-          <h2 style={{ marginBottom: 16 }}>📖 {t('subsections')} — {t('chapter')} {chapter.index}</h2>
-          {node === 'remediate' && (
-            <div className="note-box anim-pop">🔁 <b>AI review ({wf.lastScore}/5):</b> {t('aiReviewNote')}</div>
-          )}
-          {subs.map((s, i) => (
-            <div className="subsection" key={i}>
-              <h4>{s.title}</h4>
-              <p>{s.body}</p>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn ghost" onClick={() => go('back')}>← {t('back')}</button>
-            {node === 'remediate' ? (
-              <>
-                <button className="btn ghost" onClick={() => go('next')}>🔁 {t('lessonQuiz')}</button>
-                <button className="btn" onClick={() => go('review-done')}>{t('continue')} →</button>
-              </>
-            ) : (
-              <button className="btn" onClick={() => go('next')}>{t('lessonQuiz')} →</button>
-            )}
-          </div>
-        </>
-      )}
-
-      {step === 2 && (
-        <Quiz
-          title={t('lessonQuiz')}
-          questions={quiz}
-          onDone={score => {
-            store.setProgress(user.id, `${sub.name}:${chapter.index}:quiz`, score);
-            store.addScore(user.id, {
-              subject: sub.name, chapter: `Ch ${chapter.index} lesson quiz`,
-              score, total: 5, points: score * 4, kind: 'lesson-quiz'
-            });
-            go('quiz-done', { lastScore: score });
-          }}
-          back={() => go('back')}
-        />
-      )}
-
-      {step === 3 && (
-        <Quiz
-          title={t('chapterExam')}
-          questions={exam}
-          isExam
-          onDone={score => {
-            const pts = score * 5;
-            store.setProgress(user.id, `${sub.name}:${chapter.index}`, 'done');
-            store.addScore(user.id, {
-              subject: sub.name, chapter: `Chapter ${chapter.index}: ${chapter.title}`,
-              score, total: 40, points: pts, kind: 'chapter-exam'
-            });
-            go('exam-done');
-          }}
-          back={() => go('back')}
-        />
-      )}
-
-      {step === 4 && (
-        <div className="result-box ok">
-          <div style={{ fontSize: 46 }}>🎉</div>
-          <div className="big">{t('completed')}!</div>
-          <p style={{ margin: '12px 0 20px', fontSize: 16 }}>
-            Your points were reported to the admin & director dashboards.
-          </p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button className="btn amber" onClick={() => nav(`/student/learn/${encodeURIComponent(sub.name)}`)}>{t('back')} to {sub.name}</button>
-            <Link className="btn" style={{ textDecoration: 'none' }} to="/student">{t('home')}</Link>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -469,8 +297,7 @@ export default function StudyAI({ user }) {
   return (
     <Routes>
       <Route index element={<SubjectList user={user} />} />
-      <Route path=":subject" element={<ChapterList user={user} />} />
-      <Route path=":subject/:chapterIndex" element={<LessonFlow user={user} />} />
+      <Route path=":subject" element={<SubjectItems user={user} />} />
       <Route path="*" element={<Navigate to="/student/learn" replace />} />
     </Routes>
   );

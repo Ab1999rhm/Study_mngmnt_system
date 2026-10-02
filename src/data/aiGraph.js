@@ -41,33 +41,6 @@ export function createGraph(entry = 'start') {
   return api;
 }
 
-// Adaptive lesson workflow: quiz score < 3/5 routes the student through a
-// remediation node before the chapter exam.
-export const lessonGraph = createGraph('welcome')
-  .addNode('welcome', () => ({ step: 0, review: false }))
-  .addNode('lessons', s => ({ step: 1, review: !!s.review }))
-  .addNode('lesson_quiz', () => ({ step: 2 }))
-  .addNode('remediate', s => ({ step: 1, review: true, lastScore: s.lastScore || 0 }))
-  .addNode('chapter_exam', () => ({ step: 3 }))
-  .addNode('complete', () => ({ step: 4 }))
-  .addConditionalEdges('welcome', (_s, e) => (e === 'begin' ? 'lessons' : 'welcome'))
-  .addConditionalEdges('lessons', (_s, e) => (e === 'next' ? 'lesson_quiz' : e === 'back' ? 'welcome' : 'lessons'))
-  .addConditionalEdges('lesson_quiz', (s, e) => {
-    if (e === 'quiz-done') return (s.lastScore || 0) >= 3 ? 'chapter_exam' : 'remediate';
-    return e === 'back' ? 'lessons' : 'lesson_quiz';
-  })
-  .addConditionalEdges('remediate', (_s, e) => {
-    if (e === 'review-done') return 'chapter_exam';
-    if (e === 'next') return 'lesson_quiz';
-    return e === 'back' ? 'lessons' : 'remediate';
-  })
-  .addConditionalEdges('chapter_exam', (_s, e) => (e === 'exam-done' ? 'complete' : e === 'back' ? 'lesson_quiz' : 'chapter_exam'))
-  .addConditionalEdges('complete', () => 'complete');
-
-export const LESSON_WORKFLOW = [
-  '🧭 welcome', '📖 lessons', '❓ lesson quiz', '🔁 remediate', '📋 chapter exam', '🎉 complete'
-];
-
 // Payment / access-code workflow used by the Store redeem flow.
 export const redeemGraph = createGraph('validate')
   .addNode('validate', s => ({ ...s, stage: 'validate' }))

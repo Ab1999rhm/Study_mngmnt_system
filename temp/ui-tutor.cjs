@@ -98,7 +98,7 @@ async function main() {
   check(await evalJs("!!document.querySelector('#tutor-msgs [data-src=\"ai\"]') || !!document.querySelector('#tutor-msgs [data-src=\"local\"]')"), 'reply carries a source tag');
 
   await ask('How do exams work?');
-  check(await waitFor("document.querySelector('#tutor-msgs').innerText.includes('5-question')", 30000), 'exam mechanics answered exactly (local fast path)');
+  check(await waitFor("document.querySelector('#tutor-msgs').innerText.includes('uploads real tests')", 30000), 'exam mechanics answered exactly (local fast path)');
   check(await evalJs("!!document.querySelector('#tutor-msgs [data-src=\"local\"]')"), 'app-intent reply tagged local');
 
   await send('Network.enable');
@@ -113,10 +113,10 @@ async function main() {
   check(await waitFor("document.querySelectorAll('.tt-table tbody tr').length >= 6"), 'study plan schedule renders');
   const plan = await evalJs(`(() => {
     const rows = [...document.querySelectorAll('.tt-table tbody tr')].map(r => r.innerText.replace(/\\s+/g, ' '));
-    return JSON.stringify({ rows, hasTarget: rows.some(r => /ch \\d+:/.test(r)), hasOldStatic: rows.some(r => r.includes('New sub-section of Mathematics + 3-line note')) });
+    return JSON.stringify({ rows, hasTarget: rows.some(r => r.includes('Test Book')), hasOldStatic: rows.some(r => r.includes('New sub-section of Mathematics + 3-line note')) });
   })()`);
   const planObj = JSON.parse(plan);
-  check(planObj.hasTarget, 'plan tasks reference the real next chapter', JSON.stringify(planObj.rows.slice(0, 4)));
+  check(planObj.hasTarget, 'plan tasks reference the real next upload', JSON.stringify(planObj.rows.slice(0, 4)));
   check(!planObj.hasOldStatic, 'old subjects[0]-static task text gone');
 
   // ── F: today plan on home is progress-driven ──
@@ -125,11 +125,11 @@ async function main() {
   const home = await evalJs(`(() => {
     const card = (document.querySelectorAll('.tt-table')[0] || {}).closest ? document.querySelectorAll('.tt-table')[0].closest('.card') : null;
     const rows = card ? [...card.querySelectorAll('.tt-table tbody tr')].map(r => r.innerText.replace(/\\s+/g, ' ')) : [];
-    return JSON.stringify({ rows, hasTarget: rows.some(r => /ch \\d+:/.test(r)), hasOld: rows.some(r => r.includes("Review yesterday's notes")), nextUp: (document.body.innerText.match(/next up[^.]{0,80}/) || [''])[0] });
+    return JSON.stringify({ rows, hasTarget: rows.some(r => r.includes('Test Book')), hasOld: rows.some(r => r.includes("Review yesterday's notes")), nextUp: (document.body.innerText.match(/next up[^.]{0,80}/) || [''])[0] });
   })()`);
   const homeObj = JSON.parse(home);
   check(homeObj.rows.length === 3, 'three dynamic rows', JSON.stringify(homeObj.rows));
-  check(homeObj.hasTarget, 'today rows cite the real next chapter', JSON.stringify(homeObj.rows));
+  check(homeObj.hasTarget, 'today rows cite the real next upload', JSON.stringify(homeObj.rows));
   check(!homeObj.hasOld, 'old static "Review yesterday\'s notes" row gone');
   check(/next up/i.test(homeObj.nextUp), 'note box shows next-up target', homeObj.nextUp);
 

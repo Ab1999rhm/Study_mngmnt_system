@@ -15,22 +15,7 @@ globalThis.localStorage = {
 
 (async () => {
   const { store } = await import('./src/data/store-t.mjs');
-  const { lessonGraph } = await import('./src/data/aiGraph.js');
   const assert = (name, cond) => { console.log((cond ? 'PASS  ' : 'FAIL  ') + name); if (!cond) process.exitCode = 1; };
-
-  // LangGraph-style lesson workflow routing
-  let r = lessonGraph.next('welcome', { step: 0 }, 'begin');
-  assert('graph: welcome → lessons', r.node === 'lessons' && r.state.step === 1);
-  r = lessonGraph.next('lessons', r.state, 'next');
-  assert('graph: lessons → lesson_quiz', r.node === 'lesson_quiz' && r.state.step === 2);
-  const hi = lessonGraph.next('lesson_quiz', { step: 2, lastScore: 5 }, 'quiz-done');
-  const lo = lessonGraph.next('lesson_quiz', { step: 2, lastScore: 1 }, 'quiz-done');
-  assert('graph: high quiz score → chapter_exam', hi.node === 'chapter_exam' && hi.state.step === 3);
-  assert('graph: low quiz score → remediate', lo.node === 'remediate' && lo.state.review === true && lo.state.step === 1);
-  r = lessonGraph.next('remediate', lo.state, 'review-done');
-  assert('graph: remediate → chapter_exam', r.node === 'chapter_exam');
-  r = lessonGraph.next('chapter_exam', r.state, 'exam-done');
-  assert('graph: exam → complete', r.node === 'complete' && r.state.step === 4);
 
   store.seedIfEmpty();
   assert('seed no longer creates built-in accounts', store.db.users.length === 0);

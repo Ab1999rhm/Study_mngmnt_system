@@ -4,14 +4,14 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   BarChart, Bar, Cell
 } from 'recharts';
-import { subjectsFor } from '../../data/content.js';
+import { studentSubjects } from '../../data/curriculum.js';
 import { nextStudyTarget, lastStudied, targetLabel } from '../../data/plan.js';
 import { store } from '../../data/store.js';
 import { Stat, ChartCard, PageHead } from '../../components/ui.jsx';
 
 export default function StudentHome({ user }) {
   const { t } = useTranslation();
-  const subjects = subjectsFor(user.grade);
+  const subjects = studentSubjects(user);
   const scores = user.scores || [];
   const totalQ = scores.reduce((a, s) => a + (s.total || 0), 0);
   const earned = scores.reduce((a, s) => a + (s.score || 0), 0);
@@ -36,11 +36,11 @@ export default function StudentHome({ user }) {
   const anns = store.announcements();
   const next = nextStudyTarget(user);
   const last = lastStudied(user);
-  const label = targetLabel(next);
+  const label = targetLabel(next) || t('materials');
   const todayRows = [
-    { time: '08:00', text: last ? `Review your ${last.subject} ch ${last.chapter} notes (15 min)` : 'Review your newest notes (15 min)' },
-    { time: '16:00', text: next && next.done ? `Revision: ${label} — re-read + 3-line note (30 min)` : `New sub-section: ${label} (30 min)` },
-    { time: '19:00', text: `5-question lesson quiz: ${label} (10 min)` }
+    { time: '08:00', text: last ? `Review your ${last.subject} material — ${last.chapter} (15 min)` : 'Review your newest notes (15 min)' },
+    { time: '16:00', text: next && next.done ? `Revision: ${label} — re-read + 3-line note (30 min)` : `Read: ${label} (30 min)` },
+    { time: '19:00', text: 'Practice test: take an uploaded exam from the Exams page (10 min)' }
   ];
 
   return (
@@ -63,7 +63,7 @@ export default function StudentHome({ user }) {
       <div className="grid cols4 stagger" style={{ marginBottom: 22 }}>
         <Stat grad="brand" icon="⭐" label={t('myPoints')} value={user.points} />
         <Stat grad="success" icon="🎯" label={t('averageScore')} value={pct} suffix="%" delay={60} />
-        <Stat grad="accent" icon="📋" label={t('chapterExam')} value={scores.length} delay={120} />
+        <Stat grad="accent" icon="📋" label={t('mockExam')} value={scores.length} delay={120} />
         <Stat grad="warning" icon="❤️" label={t('favorites')} value={(user.favorites || []).length} delay={180} />
       </div>
 
@@ -94,41 +94,51 @@ export default function StudentHome({ user }) {
         </ChartCard>
 
         <ChartCard title={`🎯 ${t('subjects')} mastery`} sub={gradeLabel}>
-          <ResponsiveContainer width="100%" height={210}>
-            <BarChart data={bySubject} margin={{ left: -22, right: 6, top: 6 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10.5, fill: '#64748b' }} interval={0} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13 }} cursor={{ fill: '#f0fdfa' }} />
-              <Bar dataKey="pct" radius={[6, 6, 0, 0]} animationDuration={900}>
-                {bySubject.map((_, i) => (
-                  <Cell key={i} fill={['#0d9488', '#115e59', '#059669', '#f59e0b', '#0e7490'][i % 5]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {bySubject.length === 0 ? (
+            <div className="empty" style={{ padding: 34 }}>
+              <div className="ico">📭</div>
+              {t('noContentYet')}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={210}>
+              <BarChart data={bySubject} margin={{ left: -22, right: 6, top: 6 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10.5, fill: '#64748b' }} interval={0} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13 }} cursor={{ fill: '#f0fdfa' }} />
+                <Bar dataKey="pct" radius={[6, 6, 0, 0]} animationDuration={900}>
+                  {bySubject.map((_, i) => (
+                    <Cell key={i} fill={['#0d9488', '#115e59', '#059669', '#f59e0b', '#0e7490'][i % 5]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 
       <div className="grid cols2 stagger" style={{ marginTop: 18 }}>
         <div className="card">
           <h3 style={{ marginBottom: 14 }}>📚 {t('subjects')} — {gradeLabel}</h3>
-          <div className="grid cols2" style={{ gap: 12 }}>
-            {subjects.map(s => {
-              const done = s.chapters.filter(c => user.progress?.[`${s.name}:${c.index}`] === 'done').length;
-              const p = Math.round((done / s.chapters.length) * 100);
-              return (
+          {subjects.length === 0 ? (
+            <div className="empty" style={{ padding: 26 }}>
+              <div className="ico">📭</div>
+              {t('noContentYet')}
+            </div>
+          ) : (
+            <div className="grid cols2" style={{ gap: 12 }}>
+              {subjects.map(s => (
                 <Link key={s.name} to="/student/learn" style={{ textDecoration: 'none' }}>
                   <div className="subject-card" style={{ padding: 15 }}>
                     <div className="ico">📖</div>
                     <h3 style={{ fontSize: 14.5 }}>{s.name}</h3>
-                    <p>{done}/{s.chapters.length} {t('completed')}</p>
-                    <div className="bar" style={{ marginTop: 10 }}><i style={{ width: p + '%' }} /></div>
+                    <p>{s.done}/{s.total} {t('completed')}</p>
+                    <div className="bar" style={{ marginTop: 10 }}><i style={{ width: s.pct + '%' }} /></div>
                   </div>
                 </Link>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -155,7 +165,7 @@ export default function StudentHome({ user }) {
           </thead>
           <tbody>
             {scores.length === 0 && (
-              <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--muted)', padding: 30 }}>No exams yet — start your first chapter!</td></tr>
+              <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--muted)', padding: 30 }}>No exams yet — take your first uploaded test from the Exams page!</td></tr>
             )}
             {[...scores].reverse().slice(0, 6).map(s => (
               <tr key={s.id}>

@@ -83,9 +83,9 @@ check(/📘 From your book/.test(a4), 'book question beats fallback', a4.slice(0
 const a5 = askTutor('Explain this section simply', fresh, book);
 check(/We are reading "Kobo Volcano Atlas"/.test(a5), 'menu fallback mentions current book', a5.slice(-140));
 
-// --- no book: behavior unchanged ---
+// --- no book: course questions fall through to the real AI (local menu fallback offline) ---
 const a6 = askTutor('What is a fraction?', fresh);
-check(/part of a whole/i.test(a6), 'no-book term answer unchanged');
+check(/I can explain curriculum terms/.test(a6) && !/📘/.test(a6), 'no-book course question -> local menu fallback', a6.slice(0, 140));
 check(!/📘 We are reading/.test(askTutor('hi', fresh)), 'no-book intro unchanged');
 
 // --- tutorMessages threads the book ---

@@ -1,16 +1,20 @@
-import { subjectsFor } from './content.js';
+import { studentUploads, itemLabel } from './curriculum.js';
 
-// first chapter of the student's grade that is not marked done yet
+// first uploaded material of the student's grade that is not read yet
 export function nextStudyTarget(user) {
-  const subjects = subjectsFor(user.grade);
-  if (!subjects.length) return null;
-  for (const s of subjects) {
-    for (const c of s.chapters) {
-      if (user.progress?.[`${s.name}:${c.index}`] !== 'done') return { subject: s, chapter: c, done: false };
+  const items = studentUploads(user, ['book', 'material', 'library', 'video'])
+    .slice()
+    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  if (!items.length) return null;
+  const prog = (user && user.progress) || {};
+  for (const item of items) {
+    const sp = prog['study:' + item.id];
+    if (!(sp && sp.completedAt)) {
+      return { item, subject: { name: String(item.subject || '').trim() || 'General' }, done: false };
     }
   }
-  const s = subjects[0];
-  return { subject: s, chapter: s.chapters[s.chapters.length - 1], done: true };
+  const last = items[items.length - 1];
+  return { item: last, subject: { name: String(last.subject || '').trim() || 'General' }, done: true };
 }
 
 // most recent exam the student took (for review blocks); null on a fresh account
@@ -23,5 +27,5 @@ export function lastStudied(user) {
 
 export function targetLabel(target) {
   if (!target) return null;
-  return `${target.subject.name} ch ${target.chapter.index}: ${target.chapter.title}`;
+  return itemLabel(target.item);
 }

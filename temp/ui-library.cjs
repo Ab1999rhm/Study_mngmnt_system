@@ -70,23 +70,18 @@ async function main() {
   await send('Runtime.enable');
 
   await goto(BASE + '/seed-test.html?user=stu_test#/student/library');
-  check(await waitFor("location.hash.includes('/student/library') && document.querySelectorAll('.subject-card button').length > 0"), 'library chapter cards with Start buttons');
+  check(await waitFor("location.hash.includes('/student/library') && document.querySelectorAll('.subject-card button').length > 0"), 'library upload cards with open buttons');
 
   const cardCount = await evalJs("document.querySelectorAll('.subject-card').length");
   const startLabels = await evalJs("[...document.querySelectorAll('.subject-card button')].map(b => b.textContent.trim())");
-  const startBtns = startLabels.filter(l => l.includes('Start'));
+  const startBtns = startLabels.filter(l => /Study|Open/i.test(l));
   console.log('LABELS ' + JSON.stringify(startLabels.slice(0, 8)) + ` (${startLabels.length} total)`);
-  check(cardCount > 0 && startBtns.length > 0, `Start buttons present: ${startBtns.length} (cards: ${cardCount})`);
+  check(cardCount > 0 && startBtns.length > 0, `Study/Open buttons present: ${startBtns.length} (cards: ${cardCount})`);
 
-  await evalJs(`[...document.querySelectorAll('.subject-card button')].find(b => b.textContent.includes('Start')).click()`);
-  check(await waitFor("location.hash.startsWith('#/student/learn/')"), 'Start navigates into lesson flow');
-  const hash = await evalJs('location.hash');
-  const m = /^#\/student\/learn\/(.+)\/(\d+)$/.exec(hash);
-  check(!!m, 'route has :subject/:chapterIndex segments: ' + hash);
-  if (m) {
-    const subject = decodeURIComponent(m[1]);
-    check(await waitFor(`document.body.innerText.includes(${JSON.stringify(subject)})`), `LessonFlow renders subject "${subject}"`);
-  }
+  await evalJs(`[...document.querySelectorAll('.subject-card button')].find(b => /Study|Open/i.test(b.textContent)).click()`);
+  check(await waitFor("!!document.querySelector('[data-testid=\"ask-ai-book\"]')"), 'Study opens the real study reader');
+  const readerTitle = await evalJs("document.querySelector('[data-testid=\"ask-ai-book\"]').closest('header').innerText");
+  check(/Test Book/.test(readerTitle), 'reader header shows the uploaded book title: ' + readerTitle.slice(0, 80));
 
   console.log('js errors: ' + errs.length + (errs.length ? ' :: ' + errs.join(' | ') : ''));
   const failed = results.filter(r => !r.ok).length;

@@ -105,10 +105,15 @@ async function main() {
   }, 30000);
   check(!!precacheN, `precache populated (entries: ${precacheN || 0})`);
 
-  // 2. inject student session (content.js bundled, ?user= disables sync)
+  // 2. inject student session (?user= disables sync)
   const inj = await evalJs(`(() => {
+    const t = new Date().toISOString();
     const db = { users: [{ id: 'offline_t', role: 'student', fullName: 'Offline Test', email: 'off@t.t', grade: 8, schoolName: 'Test School', active: true, points: 120, aiEnabled: true }],
-      uploads: [], reports: [], progress: {}, notes: [], payRequests: [], resetRequests: [], packages: [], announcements: [], settings: {}, videos: [], codes: [] };
+      uploads: [
+        { id: 'off_up1', type: 'book', title: 'Offline Book', subject: 'Mathematics', grade: 'all', body: 'Offline book body.', price: 0, free: true, createdAt: t },
+        { id: 'off_up2', type: 'library', title: 'Offline Library Book', subject: 'Science', grade: 'all', body: 'Offline library body.', price: 0, free: true, createdAt: t }
+      ],
+      reports: [], progress: {}, notes: [], payRequests: [], resetRequests: [], packages: [], announcements: [], settings: {}, videos: [], codes: [] };
     localStorage.setItem('ssa_db_v1', JSON.stringify(db));
     localStorage.setItem('ssa_session_v1', 'offline_t');
     localStorage.removeItem('ssa_lang');

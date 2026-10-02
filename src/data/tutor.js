@@ -1,10 +1,10 @@
-import { subjectsFor } from './content.js';
+import { studentUploads } from './curriculum.js';
 import { nextStudyTarget, lastStudied, targetLabel } from './plan.js';
 import { store } from './store.js';
 
 const clean = s => String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
-const INTRO = `Hi! I'm your SSA public AI - ask me anything: your course, homework, or any question you're curious about.
+const INTRO = `Welcome! I'm your SSA public AI - ask me anything: your course, homework, or any question you're curious about.
 
 Try me:
 • "What is a fraction?"
@@ -20,64 +20,18 @@ Try:
 • "How do exams and points work?"
 • "How do I unlock a package?"`;
 
-function findTerm(q, subjects) {
-  const qc = clean(q);
-  let best = null;
-  for (const s of subjects) {
-    for (const c of s.chapters) {
-      for (const pair of (c.terms || [])) {
-        const [term, def] = pair;
-        const t = clean(term);
-        if (!t) continue;
-        let score = 0;
-        if (qc === t) score = 100 + t.length;
-        else if (t.length >= 4 && qc.includes(t)) score = 60 + t.length;
-        else if (qc.length >= 4 && t.includes(qc)) score = 45 + t.length;
-        else {
-          const qw = qc.split(' ').filter(w => w.length > 3);
-          const hits = qw.filter(w => t.split(' ').includes(w)).length;
-          if (hits) score = 12 * hits;
-        }
-        if (score > 0 && (!best || score > best.score)) best = { term, def, subject: s, chapter: c, score };
-      }
-    }
-  }
-  return best && best.score >= 12 ? best : null;
-}
-
-function findChapter(q, subjects) {
-  const qc = clean(q);
-  let best = null;
-  for (const s of subjects) {
-    for (const c of s.chapters) {
-      const tt = clean(c.title);
-      if (!tt) continue;
-      let score = 0;
-      if (qc === tt) score = 100;
-      else if (qc.includes(tt)) score = 70;
-      else {
-        const qw = qc.split(' ').filter(w => w.length > 3);
-        const hits = qw.filter(w => tt.split(' ').includes(w)).length;
-        if (hits && hits >= Math.min(2, tt.split(' ').length)) score = 20 * hits;
-      }
-      if (score > 0 && (!best || score > best.score)) best = { chapter: c, subject: s, score };
-    }
-  }
-  return best;
-}
-
 const studyNextAnswer = user => {
   const target = nextStudyTarget(user || {});
-  if (!target) return 'I could not find your grade content. Check your profile grade.';
+  if (!target) return 'No materials have been uploaded for your grade yet. Ask your school admin to upload books or notes — I can still help with any question in the meantime.';
   const label = targetLabel(target);
   return target.done
-    ? `You have finished every chapter in your grade — great work! Revisit your weakest chapter (${label}), redo its quiz, and keep your streak with the weekly 40-question exam on Saturday.`
-    : `Your next unfinished chapter is ${label}.\n\nDo it in this order: watch the lesson, write a 3-line note, then take the 5-question check. Today's plan on your home page is built around exactly this chapter.`;
+    ? `You have finished every uploaded material — great work! Revisit ${label} for revision, and take a practice test from the Exams page to keep your streak.`
+    : `Your next material is ${label}.\n\nDo it in this order: open it in Lessons, read it with the study reader, write a 3-line note, then take a practice test from the Exams page. Today's plan on your home page is built around exactly this material.`;
 };
 
-const examAnswer = () => 'Two checks in SSA: a 5-question lesson quiz at the end of each lesson (quick, gives points) and a 40-question chapter exam every Saturday (counts as a full assessment). Scores and points appear on your home page, and your director sees your follow-up status.';
+const examAnswer = () => 'Your school uploads real tests and model exams — open the Exams page, pick one, and answer it. Every correct answer gives points; the score is recorded on your home page and reported to the admin & director dashboards.';
 
-const pointsAnswer = () => 'You earn points from quizzes, chapter exams and completed lessons. Your total shows as ⭐ on the home page, and the progress chart there tracks every assessment. Keep scores above 70% to stay on track.';
+const pointsAnswer = () => 'You earn points from the tests and exams your school uploads. Your total shows as ⭐ on the home page, and the progress chart there tracks every assessment. Keep scores above 70% to stay on track.';
 
 const packageAnswer = () => {
   const phone = String((store.settings() || {}).payPhone || '').trim();
@@ -91,7 +45,6 @@ const passwordAnswer = () => 'On the login screen press "Forgot password?", ente
 const videoAnswer = () => 'Videos live in Materials (Video Hub) and the Store. Locked items unlock after your payment is approved. Add one to your favorites with the ★ button so it is easy to find.';
 
 export function askTutor(question, user, book) {
-  const subjects = subjectsFor(user && user.grade);
   const qc = clean(question);
   const intro = book && book.title
     ? INTRO + `\n\n📘 We are reading "${book.title}" right now — ask me anything from it!`
@@ -102,17 +55,6 @@ export function askTutor(question, user, book) {
   const fromBook = bookAnswer(qc, book);
   if (fromBook && !appIntent(qc, user)) return fromBook;
 
-  const term = findTerm(qc, subjects);
-  if (term) {
-    return `${term.term}: ${term.def}\n\n📘 From ${term.subject.name} — Chapter ${term.chapter.index}: ${term.chapter.title}. Open that chapter in your lessons to practice it step by step.`;
-  }
-
-  const chap = findChapter(qc, subjects);
-  if (chap) {
-    const names = (chap.chapter.terms || []).slice(0, 6).map(p => p[0]).join(', ');
-    return `Chapter ${chap.chapter.index} of ${chap.subject.name} — "${chap.chapter.title}" — covers ${chap.chapter.terms.length} key terms: ${names}${chap.chapter.terms.length > 6 ? ', …' : ''}.\n\nGo to Lessons → ${chap.subject.name} → Chapter ${chap.chapter.index} to work through it, then take the 5-question check.`;
-  }
-
   if (/(study next|what should i study|next chapter|next unfinished|my plan for today|what now)/.test(qc)) return studyNextAnswer(user);
   if (/(exam|quiz|test|assessment)/.test(qc)) return examAnswer();
   if (/(point|score|rank|reward)/.test(qc)) return pointsAnswer();
@@ -120,16 +62,6 @@ export function askTutor(question, user, book) {
   if (/(password|login|log in|forgot|reset|sign in|account)/.test(qc)) return passwordAnswer();
   if (/(video|watch)/.test(qc)) return videoAnswer();
   if (/(who are you|what can you do|help|how do you work)/.test(qc)) return INTRO;
-
-  const qcWords = qc.split(' ').filter(w => w.length > 3);
-  if (qcWords.length) {
-    const suggestions = [];
-    for (const s of subjects) for (const c of s.chapters) for (const p of (c.terms || [])) {
-      const t = clean(p[0]);
-      if (qcWords.some(w => t.split(' ').includes(w) || t.includes(w))) suggestions.push(p[0]);
-    }
-    if (suggestions.length) return `I don't have an exact entry for that, but you may mean: ${[...new Set(suggestions)].slice(0, 3).join(', ')}.\n\nAsk "What is X?" about any of them.`;
-  }
 
   return book && book.title
     ? `${MENU}\n\n📘 We are reading "${book.title}" right now — tell me which part to explain, or paste the passage and I will walk you through it step by step with an example.`
@@ -239,22 +171,45 @@ export function bookDigest(book, question, budget) {
   return lines.join('\n');
 }
 
+// real content uploaded by the school, grouped by subject
+function materialGroups(u) {
+  const by = new Map();
+  for (const x of studentUploads(u)) {
+    const n = String(x.subject || '').trim() || 'General';
+    if (!by.has(n)) by.set(n, []);
+    const kind = x.type === 'test' ? ' (test)' : x.type === 'exam' ? ' (model exam)' : '';
+    by.get(n).push(`${String(x.title).slice(0, 70)}${kind}`);
+  }
+  return by;
+}
+
 export function tutorSystemPrompt(question, user, language, book) {
   const u = user || {};
-  const subjects = subjectsFor(u.grade);
   const lines = [];
   lines.push('You are the public AI assistant of SSA Learning Hub, a learning app for Ethiopian students (Grades 1-12). Students may ask you anything - their course, homework, or general questions - not only the listed material.');
   lines.push(`The student studies grade ${u.grade === 'remedial' ? 'remedial' : u.grade}. Reply in ${LANG_NAMES[language] || 'English'} with short, simple sentences a student can understand.`);
   lines.push('');
-  lines.push('SSA curriculum (subject — chapter list):');
-  for (const s of subjects) lines.push(`- ${s.name}: ${s.chapters.map(c => `Ch ${c.index} ${c.title}`).join('; ')}`);
+  lines.push('School learning materials (real content uploaded by the school for this grade):');
+  const groups = materialGroups(u);
+  if (!groups.size) lines.push('- (none uploaded yet for this grade)');
+  else {
+    let shown = 0;
+    for (const [name, titles] of groups) {
+      if (shown >= 10) break;
+      lines.push(`- ${name}: ${titles.join('; ').slice(0, 400)}`);
+      shown += 1;
+    }
+  }
   const target = nextStudyTarget(u);
   const last = lastStudied(u);
+  const prog = u.progress || {};
+  const uploads = studentUploads(u);
+  const readDone = uploads.filter(x => prog['study:' + x.id] && prog['study:' + x.id].completedAt).length;
   lines.push('');
-  lines.push(`Student state: next unfinished chapter = ${target ? targetLabel(target) : 'unknown'}; points = ${u.points || 0}; last studied = ${last ? `${last.subject} Ch ${last.chapter}` : 'nothing yet'}; completed = ${subjects.reduce((n, s) => n + s.chapters.filter(c => (u.progress || {})[`${s.name}:${c.index}`] === 'done').length, 0)} chapters.`);
+  lines.push(`Student state: next material = ${target ? targetLabel(target) : 'none uploaded yet'}; points = ${u.points || 0}; last studied = ${last ? `${last.subject} — ${last.chapter}` : 'nothing yet'}; materials read = ${readDone} of ${uploads.length}.`);
   lines.push('');
   lines.push('App facts (answer exactly these when asked):');
-  lines.push('- Lesson quiz: a 5-question check at the end of each lesson (+4 points each). Chapter exam: a 40-question exam every Saturday (+5 points each).');
+  lines.push('- Exams: the school uploads real tests and model exams (Exams page). Each correct answer awards points; scores go to the admin & director dashboards.');
   lines.push('- Packages are bought in the Store; the student taps "I have paid"; the school admin approves and unlocks the content.');
   const phone = String((store.settings() || {}).payPhone || '').trim();
   if (phone) lines.push(`- Payment phone shown in the Store: ${phone}. Never invent another number.`);
@@ -262,20 +217,9 @@ export function tutorSystemPrompt(question, user, language, book) {
   lines.push('- Password: login screen -> "Forgot password?" -> admin approves -> student chooses a new password (min 6 characters).');
   lines.push('- Videos live in Materials (Video Hub) and the Store; locked until a payment is approved.');
   lines.push('');
-  const qc = clean(question);
-  const term = findTerm(qc, subjects);
-  const chap = findChapter(qc, subjects);
-  const material = [];
-  if (term) material.push(`${term.subject.name}, Chapter ${term.chapter.index} "${term.chapter.title}": ${term.term} = ${term.def}`);
-  if (chap) material.push(`${chap.subject.name}, Chapter ${chap.chapter.index} "${chap.chapter.title}" key terms: ${(chap.chapter.terms || []).slice(0, 14).map(p => `${p[0]} = ${p[1]}`).join('; ')}`);
-  if (material.length) {
-    lines.push('Curriculum material for this question:');
-    material.forEach(m => lines.push(`- ${m}`));
-    lines.push('');
-  }
   lines.push('Rules:');
   lines.push('- Answer openly: course topics, homework, science, everyday life, technology or general knowledge are all fine.');
-  lines.push('- When the question is about the SSA course, ground the answer in the material/chapter list above and end with a plain citation line like "Mathematics - Chapter 1: Numbers & Operations".');
+  lines.push('- When the question is about one of the school materials above, ground the answer in it and end with a plain citation line like "Mathematics - Test Book".');
   lines.push('- Never invent phone numbers or prices; for app questions use the app facts above. If you do not know, say so honestly.');
   lines.push('- School-appropriate: friendly and honest; decline harmful, explicit or dangerous requests politely and offer study help instead.');
   lines.push('- Plain text only: no markdown, no headings, no asterisks. Usually under 150 words unless the student needs a longer explanation.');
