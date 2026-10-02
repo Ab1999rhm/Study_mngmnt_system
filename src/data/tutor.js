@@ -1,4 +1,4 @@
-import { studentUploads } from './curriculum.js';
+import { studentUploads, STUDY_TYPES, itemLabel } from './curriculum.js';
 import { nextStudyTarget, lastStudied, targetLabel } from './plan.js';
 import { store } from './store.js';
 
@@ -24,9 +24,9 @@ const studyNextAnswer = user => {
   const target = nextStudyTarget(user || {});
   if (!target) return 'No materials have been uploaded for your grade yet. Ask your school admin to upload books or notes — I can still help with any question in the meantime.';
   const label = targetLabel(target);
-  return target.done
-    ? `You have finished every uploaded material — great work! Revisit ${label} for revision, and take a practice test from the Exams page to keep your streak.`
-    : `Your next material is ${label}.\n\nDo it in this order: open it in Lessons, read it with the study reader, write a 3-line note, then take a practice test from the Exams page. Today's plan on your home page is built around exactly this material.`;
+  if (target.done) return `You have finished every uploaded material — great work! Revisit ${label} for revision, and take a practice test from the Exams page to keep your streak.`;
+  const vid = target.item && target.item.type === 'video';
+  return `Your next material is ${label}.\n\nDo it in this order: open it in Study with AI, ${vid ? 'watch it all the way through' : 'read it with the study reader'}, write a 3-line note, then take a practice test from the Exams page. Today's plan on your home page is built around exactly this material.`;
 };
 
 const examAnswer = () => 'Your school uploads real tests and model exams — open the Exams page, pick one, and answer it. Every correct answer gives points; the score is recorded on your home page and reported to the admin & director dashboards.';
@@ -62,6 +62,11 @@ export function askTutor(question, user, book) {
   if (/(password|login|log in|forgot|reset|sign in|account)/.test(qc)) return passwordAnswer();
   if (/(video|watch)/.test(qc)) return videoAnswer();
   if (/(who are you|what can you do|help|how do you work)/.test(qc)) return INTRO;
+
+  if (!(book && book.title)) {
+    const fromMat = materialAnswer(qc, user);
+    if (fromMat) return fromMat;
+  }
 
   return book && book.title
     ? `${MENU}\n\n📘 We are reading "${book.title}" right now — tell me which part to explain, or paste the passage and I will walk you through it step by step with an example.`
@@ -123,6 +128,28 @@ function bookAnswer(qc, book) {
   return `📘 From your book "${book.title}"${book.at ? ` — ${book.at}` : ''}:\n\n${hits.join(' ')}\n\nFor a simple step-by-step explanation with an example, tap 🤖 Ask AI about this book — the AI reads this book together with you.`;
 }
 
+// Offline fallback: quote the matching sentence straight from an uploaded school
+// material the student can open (mirrors bookAnswer). Returns null when nothing
+// matches so the normal menu/AI path stays intact.
+function materialAnswer(qc, user) {
+  const qb = clean(qc).split(' ').filter(w => w.length > 3);
+  if (!qb.length) return null;
+  const u = user || {};
+  const items = studentUploads(u, STUDY_TYPES).filter(x => x.body && store.hasAccess(u, x));
+  let best = null;
+  for (const x of items) {
+    const sents = String(x.body).replace(/\s+/g, ' ').split(/(?<=[.!?])\s+/).filter(Boolean);
+    const hits = sents.filter(s => {
+      const cs = ' ' + clean(s) + ' ';
+      return qb.some(w => cs.includes(w));
+    }).slice(0, 2);
+    if (hits.length && (!best || hits.length > best.hits.length)) best = { x, hits };
+  }
+  if (!best) return null;
+  const subj = String(best.x.subject || '').trim();
+  return `📘 From your school material "${subj ? subj + ' — ' : ''}${best.x.title}":\n\n${best.hits.join(' ')}\n\nFor a simple step-by-step explanation with an example, ask the AI tutor — it reads this material together with you.`;
+}
+
 // Build an ordered, question-relevant digest of the selected book that always fits
 // the /api/ai per-message limit (8000 chars). Keeps the book's own order and wording.
 export function bookDigest(book, question, budget) {
@@ -171,16 +198,49 @@ export function bookDigest(book, question, budget) {
   return lines.join('\n');
 }
 
-// real content uploaded by the school, grouped by subject
+// real content uploaded by the school, grouped by subject (case-insensitive)
 function materialGroups(u) {
   const by = new Map();
   for (const x of studentUploads(u)) {
     const n = String(x.subject || '').trim() || 'General';
-    if (!by.has(n)) by.set(n, []);
+    const k = n.toLowerCase();
+    if (!by.has(k)) by.set(k, { name: n, titles: [] });
     const kind = x.type === 'test' ? ' (test)' : x.type === 'exam' ? ' (model exam)' : '';
-    by.get(n).push(`${String(x.title).slice(0, 70)}${kind}`);
+    by.get(k).titles.push(`${String(x.title).slice(0, 70)}${kind}`);
   }
   return by;
+}
+
+// Question-relevant excerpt of the school's uploaded study materials, used when
+// no book is selected. Only content this student can actually open is included.
+// Returns null when no paragraph matches the question keywords, so prompts
+// stay byte-identical for unrelated questions.
+export function materialDigest(u, question, budget) {
+  const user = u || {};
+  const qw = clean(question).split(' ').filter(w => w.length > 3);
+  if (!qw.length) return null;
+  const items = studentUploads(user, STUDY_TYPES).filter(x => x.body && store.hasAccess(user, x));
+  if (!items.length) return null;
+  const blocks = [];
+  for (const x of items) {
+    const paras = String(x.body).split(/\n{2,}/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const hits = paras.filter(p => {
+      const c = ' ' + clean(p) + ' ';
+      return qw.some(w => c.includes(w));
+    });
+    if (hits.length) blocks.push(`${itemLabel(x)}:\n${hits.join('\n\n')}`);
+  }
+  if (!blocks.length) return null;
+  const head = 'School material content (ground the answer in it; cite the material title at the end):';
+  let used = head.length + 2;
+  const out = [head, ''];
+  for (const b of blocks) {
+    if (used + b.length + 2 > budget) continue;
+    out.push(b, '');
+    used += b.length + 2;
+  }
+  if (out.length === 2) return null;
+  return out.join('\n').trim();
 }
 
 export function tutorSystemPrompt(question, user, language, book) {
@@ -194,9 +254,9 @@ export function tutorSystemPrompt(question, user, language, book) {
   if (!groups.size) lines.push('- (none uploaded yet for this grade)');
   else {
     let shown = 0;
-    for (const [name, titles] of groups) {
+    for (const g of groups.values()) {
       if (shown >= 10) break;
-      lines.push(`- ${name}: ${titles.join('; ').slice(0, 400)}`);
+      lines.push(`- ${g.name}: ${g.titles.join('; ').slice(0, 400)}`);
       shown += 1;
     }
   }
@@ -238,6 +298,10 @@ export function tutorSystemPrompt(question, user, language, book) {
     ].join('\n');
     const budget = Math.max(500, 7900 - out.length - fixed.replace('{DIGEST}', '').length - 140);
     out = out + fixed.replace('{DIGEST}', bookDigest(book, question, budget));
+    if (out.length > 7900) out = out.slice(0, 7900);
+  } else {
+    const dig = materialDigest(u, question, Math.max(300, 7850 - out.length));
+    if (dig) out = out + '\n\n' + dig;
     if (out.length > 7900) out = out.slice(0, 7900);
   }
   return out;

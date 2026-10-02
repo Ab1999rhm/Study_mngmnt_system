@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { store } from '../../data/store.js';
+import { studentUploads } from '../../data/curriculum.js';
 import UploadCard from '../../components/UploadCard.jsx';
 
 export default function VideoHub({ user }) {
@@ -8,7 +9,7 @@ export default function VideoHub({ user }) {
   const nav = useNavigate();
   const favs = user.favorites || [];
   const toggle = id => store.toggleFavorite(user.id, id);
-  const videos = store.uploads().filter(u => u.type === 'video' && !u.hidden && store.gradeVisible(user, u));
+  const videos = studentUploads(user, ['video']);
   const favVideos = videos.filter(v => favs.includes(v.id));
 
   const Card = ({ u }) => (

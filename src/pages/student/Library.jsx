@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { store } from '../../data/store.js';
+import { studentUploads } from '../../data/curriculum.js';
 import UploadCard from '../../components/UploadCard.jsx';
 
 export default function Library({ user }) {
@@ -10,8 +10,8 @@ export default function Library({ user }) {
   const nav = useNavigate();
   const gradeLabel = user.grade === 'remedial' ? t('remedial') : t('grade' + user.grade);
 
-  const books = store.uploads().filter(u =>
-    (u.type === 'book' || u.type === 'library') && !u.hidden && store.gradeVisible(user, u) && u.title.toLowerCase().includes(q.toLowerCase())
+  const books = studentUploads(user, ['book', 'library']).filter(u =>
+    u.title.toLowerCase().includes(q.toLowerCase())
   );
 
   return (

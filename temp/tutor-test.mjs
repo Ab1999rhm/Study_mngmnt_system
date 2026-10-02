@@ -27,7 +27,7 @@ mem['ssa_db_v1'] = JSON.stringify(seedDb);
 
 const { askTutor, appIntent, tutorSystemPrompt, tutorMessages, askTutorAI, bookDigest } = await import('../src/data/tutor.js');
 const { nextStudyTarget, lastStudied, targetLabel } = await import('../src/data/plan.js');
-const { studentSubjects, subjectItems, itemLabel, studentUploads } = await import('../src/data/curriculum.js');
+const { studentSubjects, subjectItems, itemLabel, studentUploads, markOpened } = await import('../src/data/curriculum.js');
 const { store } = await import('../src/data/store.js');
 
 let pass = 0, fail = 0;
@@ -85,6 +85,10 @@ const a2 = askTutor('What should I study next?', fresh);
 check(/next material is Mathematics — Algebra Basics/.test(a2), 'study-next cites the real next upload', a2.slice(0, 200));
 const a3 = askTutor('What should I study next?', readAll);
 check(/finished every uploaded material/.test(a3), 'study-next when everything read', a3.slice(0, 160));
+check(!/Lessons/.test(a2) && /Study with AI/.test(a2), 'study-next points to Study with AI (no stale Lessons link)', a2.slice(0, 220));
+const vNext = { grade: 8, progress: { 'study:up1': { completedAt: '2026-01-01T00:00:00.000Z' }, 'study:up2': { completedAt: '2026-01-01T00:00:00.000Z' } }, scores: [], points: 0 };
+const aVid = askTutor('What should I study next?', vNext);
+check(/Photosynthesis Clip/.test(aVid) && /watch it all the way through/.test(aVid), 'study-next video branch says watch it', aVid.slice(0, 220));
 const a4 = askTutor('How do exams work?', fresh);
 check(/uploads real tests and model exams/.test(a4) && /Exams page/.test(a4), 'exam intent explains uploaded exams', a4.slice(0, 180));
 check(!/40-question|5-question lesson quiz/.test(a4), 'exam intent has no demo exam claims', a4.slice(0, 180));
@@ -94,6 +98,8 @@ check(/Forgot password/.test(askTutor('I forgot my password', fresh)), 'password
 check(/Video Hub/.test(askTutor('Where are my videos?', fresh)), 'video intent -> Video Hub');
 const a5 = askTutor('zzz qqq wwww vvvv', fresh);
 check(/I can explain curriculum terms/.test(a5), 'unknown question -> capability menu', a5.slice(0, 160));
+const aMat = askTutor('what is the algebra body text about?', fresh);
+check(/From your school material "Mathematics — Algebra Basics"/.test(aMat), 'offline: quotes matching uploaded material with citation', aMat.slice(0, 160));
 
 // no uploads at all -> honest empty-state answer
 const savedUploads = store.db.uploads;
@@ -129,6 +135,14 @@ check(/Mathematics - Test Book/.test(sp) && !/ONLY from the material/.test(sp), 
 const spOm = tutorSystemPrompt('hi', fresh, 'om');
 check(/Reply in Afaan Oromoo/.test(spOm), 'prompt: om -> Afaan Oromoo');
 check(sp.length <= 8000, 'prompt fits proxy limit (len=' + sp.length + ')');
+check(!/School material content/.test(sp), 'prompt: no material digest for unrelated question');
+
+// --- materialDigest: question-relevant body excerpt, no book selected ---
+const spDig = tutorSystemPrompt('Explain the algebra body text', fresh, 'en');
+check(/Algebra body text\./.test(spDig), 'prompt: material digest embeds matched upload body', (spDig.match(/School material content[^\n]*/) || [''])[0]);
+check(/Mathematics — Algebra Basics:/.test(spDig), 'prompt: digest labels item Subject — Title', (spDig.match(/Mathematics — [^\n]*/) || [''])[0]);
+check(!/Grade 12 only\./.test(spDig), 'prompt: digest respects grade filter');
+check(spDig.length <= 7900, 'prompt+material digest fits 7900 cap (len=' + spDig.length + ')');
 
 // --- book-aware prompt (selected book still drives teaching) ---
 const book = { title: 'Test Book', subject: 'Mathematics', grade: 'all', at: 'Part 1', sections: ['Part 1'], hasText: true, text: 'Water is essential for life. H2O is the chemical name for water.' };
@@ -140,6 +154,21 @@ const dig = bookDigest(book, 'What is water?', 500);
 check(dig && dig.includes('Test Book') && dig.includes('Water is essential'), 'bookDigest keeps book content', (dig || '').slice(0, 80));
 const fromBook = askTutor('why is water essential?', fresh, book);
 check(/From your book "Test Book"/.test(fromBook), 'offline book answer quotes matching sentence', fromBook.slice(0, 120));
+
+// --- markOpened: non-reader study items record progress when opened ---
+store.db.users.push({ id: 'u_mo', role: 'student', grade: 8, progress: {}, scores: [], points: 0 });
+const moUser = store.db.users.find(u => u.id === 'u_mo');
+const moVideo = store.db.uploads.find(u => u.id === 'up3');
+check(markOpened(moUser, moVideo) === true, 'markOpened: link-only video records progress on open');
+const moProg = moUser.progress['study:up3'];
+check(!!(moProg && moProg.completedAt && moProg.nextReview && moProg.reviews === 0), 'markOpened: completedAt + nextReview + reviews=0 set', JSON.stringify(moProg));
+check(markOpened(moUser, moVideo) === false, 'markOpened: re-open before review due -> skipped');
+moProg.nextReview = new Date(Date.now() - 1000).toISOString();
+check(markOpened(moUser, moVideo) === true && moUser.progress['study:up3'].reviews === 1, 'markOpened: due review bumps reviews to 1', JSON.stringify(moUser.progress['study:up3']));
+check(markOpened(moUser, { id: 'upX', type: 'test', title: 'T', body: 'b' }) === false, 'markOpened: test/exam never counts as study item');
+check(markOpened(moUser, { id: 'upY', type: 'material', title: 'E' }) === false, 'markOpened: empty content not recorded');
+check(markOpened({ grade: 8 }, moVideo) === false, 'markOpened: user without id -> no-op');
+store.db.users.pop();
 
 // --- multi-turn history threading ---
 const hist = [

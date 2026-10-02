@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { store } from '../data/store.js';
+import { markOpened } from '../data/curriculum.js';
 import StudyReader from './StudyReader.jsx';
 
 const ICONS = { book: '📕', material: '📝', video: '🎬', library: '📚', test: '🧪', exam: '📋' };
@@ -29,6 +30,7 @@ export default function UploadCard({ item, user, onPay }) {
 
   const openIt = () => {
     if (studyable) { setStudy(true); return; }
+    if (kind !== 'empty') markOpened(me, item);
     if (item.fileData) { setViewer(true); return; }
     if (item.link) { window.open(item.link, '_blank'); return; }
     setOpen(o => !o);

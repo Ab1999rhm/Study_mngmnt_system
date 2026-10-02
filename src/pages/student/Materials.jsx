@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { store } from '../../data/store.js';
+import { studentUploads } from '../../data/curriculum.js';
 import UploadCard from '../../components/UploadCard.jsx';
 
 export default function Materials({ user }) {
   const { t } = useTranslation();
   const nav = useNavigate();
 
-  const adminMats = store.uploads().filter(u => u.type === 'material' && !u.hidden && store.gradeVisible(user, u));
+  const adminMats = studentUploads(user, ['material']);
 
   return (
     <>

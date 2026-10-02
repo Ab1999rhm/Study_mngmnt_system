@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { store } from '../../data/store.js';
+import { studentUploads } from '../../data/curriculum.js';
 import { Quiz } from './StudyAI.jsx';
 import UploadCard from '../../components/UploadCard.jsx';
 
@@ -11,7 +12,7 @@ export default function MockExam({ user }) {
   const [exam, setExam] = useState(null);
   const nav = useNavigate();
 
-  const adminTests = store.uploads().filter(u => (u.type === 'test' || u.type === 'exam') && !u.hidden && store.gradeVisible(user, u));
+  const adminTests = studentUploads(user, ['test', 'exam']);
 
   if (stage === 'exam' && exam) {
     return (
@@ -58,7 +59,7 @@ export default function MockExam({ user }) {
           <div className="grid cols3 stagger">
             {adminTests.map(u => store.hasAccess(user, u) && (u.questions || []).length > 0 ? (
               <div className="subject-card" key={u.id} onClick={() => {
-                setExam({ subject: u.subject || u.title, questions: u.questions, chapter: u.type === 'exam' ? 'Model Exam' : 'Admin Test' });
+                setExam({ subject: u.subject || u.title, questions: u.questions, chapter: u.title });
                 setStage('exam');
               }}>
                 <div className="ico">{u.type === 'exam' ? '📋' : '🧪'}</div>

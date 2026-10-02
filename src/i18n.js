@@ -418,6 +418,8 @@ const en = {
   nothingUnlocked: 'Nothing unlocked yet',
   cantPreview: 'can\'t preview here, click to download & open',
   noContentAttached: 'No content attached',
+  upNeedContent: 'Add content first: paste text, a link, or attach a file.',
+  upNeedQuestions: 'Add at least one question before saving this test or exam.',
 };
 
 const om = {
@@ -837,6 +839,8 @@ const om = {
   nothingUnlocked: 'Watii banatame hin jiru',
   cantPreview: 'harkatti fuuliinii hin dandeenye, dorkaa & banuu cuqaasi',
   noContentAttached: 'Qabiyyee walqabatamee hin jiru',
+  upNeedContent: 'Dura qabiyyee maxxansi: barreessi, xiriir, yookaan faylii walqabsisi.',
+  upNeedQuestions: 'Imsaan/kiroosaan kana ol kaanuuf gaaffii tokko duraan maxxansi.',
 };
 
 const am = {
@@ -1256,6 +1260,8 @@ const am = {
   nothingUnlocked: 'እስካሁን ምንም አልተከፈተም',
   cantPreview: 'እዚህ ቅድመ ዕይታ አይቻልም፣ ለማውረድና ለመክፈት ይጫኑ',
   noContentAttached: 'የተያዘ ይዘት የለም',
+  upNeedContent: 'መጀመሪያ ይዘት ያክሉ፦ ጽሑፍ፣ አገናኝ ወይም ፋይል ያያዙ።',
+  upNeedQuestions: 'ይህን ፈተና ከመቀመጫበፊት ቢያንስ አንድ ጥያቄ ያክሉ።',
 };
 
 const so = {
@@ -1505,14 +1511,7 @@ const so = {
   planIntro: 'Buugga waa loo qaybiyay qorsho barasho — akhri bog kasta, xusuus qaado fikradaha, ka jawaab su\'aalaha, ka dib ku sharax afkaaga.',
   captureEmpty: 'Ka fogow khadka oo xusuuso fikradaha ugu waaweyn afkaaga ku qor — ka dib socodsii.',
   studyClose: 'Xir',
-  partLabel: 'Qayb'
-};
-
-const resources = {
-  en: { translation: en },
-  om: { translation: om },
-  am: { translation: am },
-  so: { translation: so },
+  partLabel: 'Qayb',
   navGrpManagement: 'Maamulidda',
   navGrpStore: 'Kaydka iyo Suuqa',
   navGrpData: 'Xogta iyo Dadka',
@@ -1683,6 +1682,15 @@ const resources = {
   nothingUnlocked: 'Weli waxba lama furin',
   cantPreview: 'horudhac halkan ma samayn karto, riix si aad u soo dejiso oo furto',
   noContentAttached: 'Waxyaabo lagu daray ma jiro',
+  upNeedContent: 'Marka hore wax ku dar: qoraal, xiriir, ama fayl soo xir.',
+  upNeedQuestions: 'Ka hor kaydinta imtixaankan, ugu yaraan hal su\'aal ku dar.',
+};
+
+const resources = {
+  en: { translation: en },
+  om: { translation: om },
+  am: { translation: am },
+  so: { translation: so },
 };
 
 const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('ssa_lang')) || 'en';

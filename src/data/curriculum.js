@@ -13,14 +13,38 @@ export function studentUploads(user, types) {
   );
 }
 
+// Record that a student opened a simple (non-reader) study item — videos,
+// link-only or file items never enter StudyReader, so without this their
+// subject progress and the study plan would stay stuck at 0 forever.
+// Mirrors StudyReader's completion record: { completedAt, reviews, nextReview }.
+export function markOpened(user, item) {
+  const u = user || {};
+  if (!u.id || !item || !STUDY_TYPES.includes(item.type)) return false;
+  if (!(item.body || item.link || item.fileData)) return false;
+  const prev = ((u.progress || {})['study:' + item.id]) || {};
+  const now = Date.now();
+  if (prev.completedAt && !(prev.nextReview && Date.parse(prev.nextReview) <= now)) return false;
+  const reviews = (prev.reviews || 0) + (prev.completedAt ? 1 : 0);
+  const span = Math.min(8, 1 + reviews);
+  store.setProgress(u.id, 'study:' + item.id, {
+    ...prev,
+    completedAt: prev.completedAt || new Date(now).toISOString(),
+    reviews,
+    nextReview: new Date(now + span * 86400000).toISOString()
+  });
+  return true;
+}
+
 // study items (read/watch) grouped by subject with per-item read progress
+// (subjects grouped case-insensitively: "math" and "Mathematics" merge)
 export function studentSubjects(user) {
   const prog = (user && user.progress) || {};
   const by = new Map();
   for (const item of studentUploads(user, STUDY_TYPES)) {
     const name = String(item.subject || '').trim() || 'General';
-    if (!by.has(name)) by.set(name, { name, items: [], done: 0, total: 0 });
-    const g = by.get(name);
+    const key = name.toLowerCase();
+    if (!by.has(key)) by.set(key, { name, items: [], done: 0, total: 0 });
+    const g = by.get(key);
     g.items.push(item);
     g.total += 1;
     const sp = prog['study:' + item.id];

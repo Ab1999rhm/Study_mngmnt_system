@@ -224,6 +224,15 @@ export default function AdminDashboard({ onLogout }) {
 
   const submitUpload = e => {
     e.preventDefault();
+    const hasContent = !!(upForm.body.trim() || upForm.link.trim() || (upFile && upFile.dataUrl));
+    if (['book', 'material', 'library', 'video'].includes(upForm.type) && !hasContent) {
+      setUpMsg('❌ ' + t('upNeedContent'));
+      return;
+    }
+    if (['test', 'exam'].includes(upForm.type) && !upForm.questions.length) {
+      setUpMsg('❌ ' + t('upNeedQuestions'));
+      return;
+    }
     if (editId) {
       const res = store.updateUpload(editId, { ...upForm, fileData: upFile?.dataUrl || null, fileName: upFile?.name || null });
       if (!res) { setUpMsg(t('upUpdateFail')); return; }
