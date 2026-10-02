@@ -212,11 +212,13 @@ export const store = {
   get db() { return db; },
 
   registerStudent({ fullName, schoolName, directorName, grade, email, password }) {
+    const pw = String(password || '');
+    if (pw.length < 6) return null;
     const user = {
       id: 'stu_' + Date.now(),
       role: 'student',
       fullName, schoolName, directorName, grade,
-      email, password: hashPw(password || 'student123'),
+      email, password: hashPw(pw),
       points: 0,
       favorites: [],
       progress: {},
@@ -280,10 +282,12 @@ export const store = {
   addStudent({ fullName, email, schoolName, grade, password }) {
     if (!fullName || !email) return { ok: false, error: 'Name and email required' };
     if (db.users.some(u => u.email === email)) return { ok: false, error: 'Email already exists' };
+    const pw = String(password || '');
+    if (pw.length < 6) return { ok: false, error: 'Password must be at least 6 characters' };
     const user = {
       id: 'stu_' + Date.now(), role: 'student',
       fullName, schoolName: schoolName || '', directorName: '', directorId: null,
-      grade: grade || '8', email, password: hashPw(password || 'student123'),
+      grade: grade || '8', email, password: hashPw(pw),
       points: 0, favorites: [], progress: {}, scores: [],
       joinedAt: new Date().toISOString(), packageOpen: false, aiEnabled: true
     };
@@ -295,10 +299,12 @@ export const store = {
   addDirector({ fullName, email, schoolName, password }) {
     if (!fullName || !email) return { ok: false, error: 'Name and email required' };
     if (db.users.some(u => u.email === email)) return { ok: false, error: 'Email already exists' };
+    const pw = String(password || '');
+    if (pw.length < 6) return { ok: false, error: 'Password must be at least 6 characters' };
     const user = {
       id: 'dir_' + Date.now(), role: 'director',
       fullName, email, schoolName: schoolName || '',
-      password: hashPw(password || 'director123'),
+      password: hashPw(pw),
       joinedAt: new Date().toISOString(), active: true
     };
     db.users.push(user);

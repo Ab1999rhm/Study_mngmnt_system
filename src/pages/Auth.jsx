@@ -69,8 +69,10 @@ export default function Auth({ onLogin }) {
       return onLogin(r.user);
     }
     if (!form.fullName || !form.schoolName || !form.directorName) return setErr('Please fill in all fields.');
+    if (String(form.password || '').length < 6) return setErr('Password must be at least 6 characters.');
     if (store.emailTaken(form.email)) return setErr('Email already registered.');
     const u = store.registerStudent({ ...form, email: form.email.trim() });
+    if (!u) return setErr('Registration failed — please choose a password of at least 6 characters.');
     onLogin(u);
   };
 

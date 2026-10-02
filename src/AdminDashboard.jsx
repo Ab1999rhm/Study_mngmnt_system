@@ -329,7 +329,7 @@ export default function AdminDashboard({ onLogout }) {
     if (dirForm.mode === 'add') {
       const res = store.addDirector(dirForm);
       if (!res.ok) { flash(res.error, false); return; }
-      flash(t('directorAdded') + ' — ' + res.user.email + ' / ' + res.user.password);
+      flash(t('directorAdded') + ' — ' + res.user.email + ' / ' + dirForm.password);
     } else {
       store.updateUser(dirForm.id, { fullName: dirForm.fullName, email: dirForm.email, schoolName: dirForm.schoolName });
       flash(t('directorUpdated'));

@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const bcrypt = require('bcryptjs');
 fs.copyFileSync('src/data/store.js', 'src/data/store-t.mjs');
 
@@ -27,19 +27,19 @@ globalThis.localStorage = {
   assert('admin login', admin && admin.role === 'admin');
   assert('setup idempotent: second call rejected', store.createFirstAdmin({ fullName: 'X', email: 'x@x.x', password: 'xxxxxx' }).ok === false);
 
-  const dirRec = store.addDirector({ fullName: 'Flow Director', email: 'director@ssa.local', password: 'director123' });
+  const dirRec = store.addDirector({ fullName: 'Flow Director', email: 'director@ssa.local', password: 'flowdirpw1' });
   assert('director created by admin', dirRec.ok === true && dirRec.user.role === 'director');
-  const dir = store.login('director@ssa.local', 'director123');
+  const dir = store.login('director@ssa.local', 'flowdirpw1');
   assert('director login', dir && dir.role === 'director');
 
   const fix = store.addUpload({ type: 'material', title: 'Fixture Note', subject: 'Mathematics', grade: '8', price: 100, body: 'Fixture body' });
   assert('fixture upload created', fix.ok === true && store.uploads().length >= 1);
 
-  const fc = store.generateCode({ plan: 'full', planLabel: 'Full access — all content', price: 1000 });
+  const fc = store.generateCode({ plan: 'full', planLabel: 'Full access â€” all content', price: 1000 });
   assert('fixture full-access code unused', !!fc && !fc.usedBy);
 
-  const stu = store.addStudent({ fullName: 'Flow Student', email: 'flow1@ssa.local', schoolName: 'Flow School', grade: '8' }).user;
-  store.login('flow1@ssa.local', 'student123');
+  const stu = store.addStudent({ fullName: 'Flow Student', email: 'flow1@ssa.local', schoolName: 'Flow School', grade: '8', password: 'flowpw1' }).user;
+  store.login('flow1@ssa.local', 'flowpw1');
   assert('fresh student starts locked', !!stu && store.hasAccess(stu) === false);
 
   const item = store.uploads()[0];
@@ -61,7 +61,7 @@ globalThis.localStorage = {
   const r2 = store.redeemCode(stu.id, rec.code);
   assert('single use: second redeem fails', r2.ok === false && r2.error === 'used');
 
-  const other = store.addStudent({ fullName: 'Flow Two', email: 'flow2@ssa.local', grade: '9' }).user;
+  const other = store.addStudent({ fullName: 'Flow Two', email: 'flow2@ssa.local', grade: '9', password: 'flowpw2' }).user;
   const r3 = store.redeemCode(other.id, rec.code);
   assert('single user: other student fails', r3.ok === false);
 
@@ -135,25 +135,25 @@ globalThis.localStorage = {
   assert('package expired blocks access', store.hasAccess(stuA, quizItem) === false);
 
   // ---- gap-fix: director + student CRUD ----
-  const nd = store.addDirector({ fullName: 'New Dir', email: 'ndir@x.y', schoolName: 'S2', password: 'pw' });
+  const nd = store.addDirector({ fullName: 'New Dir', email: 'ndir@x.y', schoolName: 'S2', password: 'pw123456' });
   assert('director added', nd.ok && nd.user.role === 'director');
   const dupDir = store.addDirector({ fullName: 'Dup', email: 'ndir@x.y' });
   assert('duplicate email rejected', dupDir.ok === false);
   store.assignStudents(nd.user.id, [stuA.id]);
   assert('student assigned', store.db.users.find(u => u.id === stuA.id).directorId === nd.user.id);
   store.updateUser(nd.user.id, { active: false });
-  assert('deactivated cannot login', store.login('ndir@x.y', 'pw') === null);
+  assert('deactivated cannot login', store.login('ndir@x.y', 'pw123456') === null);
   store.updateUser(nd.user.id, { active: true });
-  assert('reactivated can login', store.login('ndir@x.y', 'pw') !== null);
+  assert('reactivated can login', store.login('ndir@x.y', 'pw123456') !== null);
   store.removeUser(nd.user.id);
   assert('dangling directorId cleared', store.db.users.find(u => u.id === stuA.id).directorId == null);
 
-  const ns = store.addStudent({ fullName: 'New Kid', email: 'newkid@x.y', grade: '7' });
+  const ns = store.addStudent({ fullName: 'New Kid', email: 'newkid@x.y', grade: '7', password: 'kidpw1' });
   assert('student added', ns.ok && ns.user.role === 'student');
   const ns2 = store.addStudent({ fullName: 'Dup Kid', email: 'newkid@x.y' });
   assert('duplicate student email rejected', ns2.ok === false);
   store.updateUser(ns.user.id, { active: false });
-  assert('inactive student blocked from login', store.login('newkid@x.y', 'student123') === null);
+  assert('inactive student blocked from login', store.login('newkid@x.y', 'kidpw1') === null);
 
   // ---- gap-fix: settings + announcements + stats ----
   store.updateSettings({ payPhone: '+251 900 000 000' });
@@ -177,7 +177,7 @@ globalThis.localStorage = {
   assert('forgot: admin approves request', !!ap && ap.status === 'approved');
   const setu = store.setResetPassword('flow1@ssa.local', 'NewPass456');
   assert('forgot: student sets new password (stored hashed)', !!setu && bcrypt.compareSync('NewPass456', setu.password));
-  assert('forgot: old password rejected', store.login('flow1@ssa.local', 'student123') === null);
+  assert('forgot: old password rejected', store.login('flow1@ssa.local', 'flowpw1') === null);
   const relog = store.login('flow1@ssa.local', 'NewPass456');
   assert('forgot: new password works', !!relog && relog.id === stu.id);
   const doneReq = store.resetRequests().find(x => x.studentId === stu.id);
@@ -204,21 +204,21 @@ globalThis.localStorage = {
   assert('#2 openPackage sets expiry', opn.packageOpen === true && !!opn.packageExpires && Date.parse(opn.packageExpires) > Date.now());
   assert('#2 full redeem sets expiry', !!other.packageExpires);
 
-  const bkid = store.addStudent({ fullName: 'Blocked Kid', email: 'blocked@x.y' }).user;
+  const bkid = store.addStudent({ fullName: 'Blocked Kid', email: 'blocked@x.y', password: 'kidpw1' }).user;
   store.updateUser(bkid.id, { active: false });
-  const la = store.loginWithReason('blocked@x.y', 'student123');
+  const la = store.loginWithReason('blocked@x.y', 'kidpw1');
   assert('#5 blocked login reports blocked', la.user === null && la.reason === 'blocked');
   const la2 = store.loginWithReason('blocked@x.y', 'wrongpw');
   assert('#5 wrong password reports invalid', la2.user === null && la2.reason === 'invalid');
   store.updateUser(bkid.id, { active: true });
-  const la3 = store.loginWithReason('blocked@x.y', 'student123');
+  const la3 = store.loginWithReason('blocked@x.y', 'kidpw1');
   assert('#5 unblocked login works', !!la3.user && la3.reason === 'ok');
 
   assert('#3/#4 grade all visible', store.gradeVisible({ grade: '8' }, { grade: 'all' }) === true);
   assert('#3/#4 matching grade visible', store.gradeVisible({ grade: '8' }, { grade: '8' }) === true);
   assert('#3/#4 other grade hidden', store.gradeVisible({ grade: '8' }, { grade: '12' }) === false);
 
-  const dNew = store.addDirector({ fullName: 'Grace Director', email: 'grace@x.y' }).user;
+  const dNew = store.addDirector({ fullName: 'Grace Director', email: 'grace@x.y', password: 'gracepw1' }).user;
   store.assignStudents(dNew.id, [stu.id]);
   assert('#7 directorName synced on assign', store.db.users.find(u => u.id === stu.id).directorName === 'Grace Director');
   store.assignStudents(dNew.id, []);
@@ -289,7 +289,7 @@ globalThis.localStorage = {
   const apDup = store.updateAdminProfile({ userId: admId, email: 'director@ssa.local' });
   assert('updateAdminProfile rejects duplicate email', apDup.ok === false);
 
-  const dTmp = store.addDirector({ fullName: 'Temp Dir', email: 'tmpdir@x.y', schoolName: 'S3', password: 'pw' }).user;
+  const dTmp = store.addDirector({ fullName: 'Temp Dir', email: 'tmpdir@x.y', schoolName: 'S3', password: 'pw123456' }).user;
   store.assignStudents(dTmp.id, [stuA.id]);
   const delOk = store.deleteDirector(dTmp.id);
   assert('deleteDirector removes director and unassigns students', delOk === true && !store.db.users.some(u => u.id === dTmp.id) && store.db.users.find(u => u.id === stuA.id).directorId == null);
@@ -297,3 +297,4 @@ globalThis.localStorage = {
   fs.unlinkSync('src/data/store-t.mjs');
   console.log(process.exitCode ? '\nFLOW TEST FAILED' : '\nALL FLOW TESTS PASSED');
 })().catch(e => { console.error('ERROR', e); process.exit(1); });
+
