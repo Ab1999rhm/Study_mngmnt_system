@@ -164,8 +164,8 @@ function ssaSyncApi() {
       res.statusCode = 405;
       res.end();
     });
-    // Real AI proxy: browser -> same-origin /api/ai -> Groq (official API, key in .env)
-    // -> fallback text.pollinations.ai (keyless) -> client falls back to local tutor.
+    // Real AI proxy: browser -> same-origin /api/ai -> text.pollinations.ai (keyless, 100% free)
+    // -> optional Groq free-tier key in .env as backup -> client falls back to local tutor.
     // The key and the third-party calls never touch the browser.
     mws.use('/api/ai', (req, res) => {
       if (!sameOrigin(req)) { forbid(res); return; }
@@ -197,15 +197,17 @@ function ssaSyncApi() {
           }
         } catch { /* bad body */ }
         if (!messages) { reply(400, { error: 'bad_request' }); return; }
-        let gWhy = '';
+        let pWhy = '';
+        const p = await callPollinations(messages);
+        if (p.ok) { reply(200, { text: p.text, provider: 'pollinations' }, 'pollinations'); return; }
+        pWhy = p.why;
         if (GROQ_API_KEY) {
           const g = await callGroq(messages);
-          if (g.ok) { reply(200, { text: g.text, provider: 'groq' }, 'groq'); return; }
-          gWhy = g.why;
+          if (g.ok) { reply(200, { text: g.text, provider: 'groq' }, 'groq', pWhy); return; }
+          reply(p.status === 429 ? 429 : p.status, { error: g.why }, 'groq', pWhy);
+          return;
         }
-        const p = await callPollinations(messages);
-        if (p.ok) reply(200, { text: p.text, provider: 'pollinations' }, 'pollinations', gWhy);
-        else reply(p.status === 429 ? 429 : p.status, { error: p.why }, 'pollinations', gWhy);
+        reply(p.status === 429 ? 429 : p.status, { error: p.why }, 'pollinations');
       });
     });
   };

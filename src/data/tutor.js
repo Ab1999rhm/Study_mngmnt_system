@@ -162,7 +162,7 @@ export function bookDigest(book, question, budget) {
   }
   if (book.at) lines.push(`Student is currently reading: ${book.at}`);
   if (!book.hasText || !book.text) {
-    lines.push('Note: this book is a scanned image/PDF — its pages are not text here, so you cannot quote it. Ask the student to paste the passage they want taught, and meanwhile explain the topic simply from general knowledge matching the book\u2019s title and subject.');
+    lines.push('Note: this book is a scanned image/PDF — its pages are not text here, so you cannot quote it. Ask the student to paste the passage they want taught, then teach from the pasted text; do not invent what the book says.');
     return lines.join('\n');
   }
   const paras = String(book.text).split(/\n{2,}/).map(p => p.replace(/\s+/g, ' ').trim()).filter(p => p.length > 30);
@@ -293,7 +293,7 @@ export function tutorSystemPrompt(question, user, language, book) {
       'Book teaching rules:',
       `- Treat "${book.title}" as the student's current book. When the question is about it or one of its sections, teach from the book content above: keep every point the book makes — never contradict or silently drop it.`,
       '- Teach simply: short sentences, step by step, with one everyday example and one simple illustration (analogy or word-picture) for each idea.',
-      `- If the book does not cover the question, say that plainly, then answer from general knowledge and note what is missing from the book.`,
+      `- Teach only from this book for questions about it: if the book does not cover the question, say plainly that it is not in this book — never answer from general knowledge — then offer the closest section from the book above and teach that instead.`,
       book.hasText ? `- When you used the book, end your reply with: Book: "${book.title}".` : `- The book pages are images, so you cannot quote them; ask the student to paste the passage you should teach.`
     ].join('\n');
     const budget = Math.max(500, 7900 - out.length - fixed.replace('{DIGEST}', '').length - 140);
