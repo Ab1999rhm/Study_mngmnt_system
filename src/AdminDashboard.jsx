@@ -86,6 +86,7 @@ export default function AdminDashboard({ onLogout }) {
   const EMPTY_UP = { type: 'book', title: '', subject: '', grade: 'all', link: '', body: '', price: 100, free: false, questions: [] };
   const [upForm, setUpForm] = useState(EMPTY_UP);
   const [upFile, setUpFile] = useState(null);
+  const officeFile = !!(upFile && /\.(pptx?|docx?|xlsx?|epub|odp|odt|ods|zip)$/i.test(upFile.name));
   const [upMsg, setUpMsg] = useState('');
   const [editId, setEditId] = useState(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -798,6 +799,19 @@ export default function AdminDashboard({ onLogout }) {
                     <div className="field">
                       <label>{t('labelFile')}</label>
                       <input type="file" accept=".pdf,.txt,.md,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.epub,image/*,audio/*,video/*" onChange={onUpFile} />
+                    </div>
+                    <div className="field" style={{ gridColumn: '1 / -1' }}>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--muted)', background: 'var(--brand-50)', border: '1px dashed var(--brand-300)', borderRadius: 8, padding: '8px 10px' }}>
+                        📎 {t('pdfTip')}
+                        {officeFile && (
+                          <div style={{ color: '#92400e', marginTop: 4 }}>
+                            ⚠️ {t('officeTip')}{' '}
+                            <a href="https://cloudconvert.com/ppt-to-pdf" target="_blank" rel="noreferrer">CloudConvert</a>
+                            {' · '}
+                            <a href="https://www.ilovepdf.com/powerpoint_to_pdf" target="_blank" rel="noreferrer">iLovePDF</a>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="field" style={{ gridColumn: 'span 2' }}>
                       <label>{t('labelLinkUrl')}</label>
