@@ -75,6 +75,7 @@ export default function StudentShell({ onLogout }) {
   const gradeLabel = user.grade === 'remedial' ? t('remedial') : t('grade' + user.grade);
   const pkgActive = !!user.packageOpen && (!user.packageExpires || Date.now() < Date.parse(user.packageExpires));
   const pkgExpired = !!user.packageOpen && !!user.packageExpires && Date.now() >= Date.parse(user.packageExpires);
+  const pkgPending = store.payRequests().some(r => r.studentId === user.id && r.status === 'pending');
 
   return (
     <div className="shell">
@@ -116,7 +117,9 @@ export default function StudentShell({ onLogout }) {
                 ? <span className="chip ok">● {t('packageActive')}</span>
                 : pkgExpired
                   ? <span className="chip bad">⏰ {t('expired')}</span>
-                  : <span className="chip warn">🔒 {t('packageLocked')}</span>}
+                  : pkgPending
+                    ? <span className="chip warn">🔒 {t('packageLocked')}</span>
+                    : <NavLink to="/student/store" className="chip warn" style={{ textDecoration: 'none' }}>🛒 {t('noPackage')}</NavLink>}
               <LangSwitch />
             </>
           }
