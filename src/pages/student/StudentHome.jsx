@@ -1,17 +1,20 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   BarChart, Bar, Cell
 } from 'recharts';
-import { studentSubjects } from '../../data/curriculum.js';
+import { studentSubjects, studentUploads } from '../../data/curriculum.js';
 import { nextStudyTarget, lastStudied, targetLabel } from '../../data/plan.js';
 import { store } from '../../data/store.js';
 import { Stat, ChartCard, PageHead } from '../../components/ui.jsx';
+import UploadCard from '../../components/UploadCard.jsx';
 
 export default function StudentHome({ user }) {
   const { t } = useTranslation();
+  const nav = useNavigate();
   const subjects = studentSubjects(user);
+  const recent = studentUploads(user).slice(0, 6);
   const scores = user.scores || [];
   const totalQ = scores.reduce((a, s) => a + (s.total || 0), 0);
   const earned = scores.reduce((a, s) => a + (s.score || 0), 0);
@@ -66,6 +69,15 @@ export default function StudentHome({ user }) {
         <Stat grad="accent" icon="📋" label={t('mockExam')} value={scores.length} delay={120} />
         <Stat grad="warning" icon="❤️" label={t('favorites')} value={(user.favorites || []).length} delay={180} />
       </div>
+
+      {recent.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <h3 className="section-title">📥 {t('newFromSchool')}</h3>
+          <div className="grid cols3 stagger">
+            {recent.map(u => <UploadCard key={u.id} item={u} user={user} onPay={() => nav('/student/store')} />)}
+          </div>
+        </div>
+      )}
 
       <div className="grid cols2 stagger">
         <ChartCard title={`📈 ${t('progress')} — ${t('results')}`} sub={`${scores.length} assessments recorded`}>
