@@ -143,6 +143,7 @@ export default function AdminDashboard({ onLogout }) {
   if (!user || user.role !== 'admin') return <Navigate to="/" replace />;
 
   const students = store.students();
+  const visibleTo = students.filter(s => upForm.grade === 'all' || String(s.grade) === String(upForm.grade)).length;
   const reports = store.reports();
 
   const pkgActive = s => !!s.packageOpen && (!s.packageExpires || Date.now() < Date.parse(s.packageExpires));
@@ -784,6 +785,9 @@ export default function AdminDashboard({ onLogout }) {
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => <option key={g} value={String(g)}>{t('grade')} {g}</option>)}
                         <option value="remedial">{t('remedial')}</option>
                       </select>
+                      <div style={{ fontSize: 12, marginTop: 4, color: visibleTo ? 'var(--muted)' : '#b91c1c', fontWeight: visibleTo ? 400 : 700 }}>
+                        {visibleTo ? t('visibleToN', { n: visibleTo, s: visibleTo === 1 ? '' : 's' }) : t('noStudentsGrade')}
+                      </div>
                     </div>
                     <div className="field">
                       <label>{t('priceLabel')} (ETB)</label>
