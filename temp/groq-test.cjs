@@ -1,4 +1,4 @@
-// Groq-primary / Pollinations-fallback / local-tier chain test for /api/ai
+// Pollinations-primary (keyless, 100% free) / Groq-keyless-backup / local-tier chain test for /api/ai
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -32,14 +32,16 @@ const AI_BODY = JSON.stringify({
 });
 
 async function main() {
-  // ---- Part A: dev server with real key -> Groq must answer ----
+  // ---- Part A: dev server -> pollinations must answer (groq only after a pollinations miss) ----
   const a = await req({ ...DEV, path: '/api/ai', method: 'POST', headers: { 'Content-Type': 'application/json' } }, AI_BODY);
   let aj = null; try { aj = JSON.parse(a.body); } catch {}
+  const prov = a.headers['x-ai-provider'];
   check(a.status === 200, `A1 dev /api/ai responds 200 (got ${a.status})`);
-  check(a.headers['x-ai-provider'] === 'groq', `A2 answered by groq (got ${a.headers['x-ai-provider'] || 'none'})`);
-  check(!a.headers['x-ai-fallback'], 'A3 no fallback header on clean groq answer');
+  check(prov === 'pollinations' || prov === 'groq', `A2 answered by free chain, pollinations first (got ${prov || 'none'})`);
+  if (prov === 'groq') check(/^pollinations_/.test(a.headers['x-ai-fallback'] || ''), `A2b groq answer records the pollinations miss (${a.headers['x-ai-fallback'] || 'none'})`);
+  else check(!a.headers['x-ai-fallback'], 'A3 no fallback header on clean pollinations answer');
   check(!!aj && typeof aj.text === 'string' && aj.text.trim().length > 0, 'A4 non-empty text payload');
-  check(!!aj && aj.provider === 'groq', `A5 body provider=groq (got ${aj && aj.provider})`);
+  check(!!aj && aj.provider === prov, `A5 body provider matches header (got ${aj && aj.provider})`);
 
   // validation paths
   const bad = await req({ ...DEV, path: '/api/ai', method: 'POST', headers: { 'Content-Type': 'application/json' } }, '{"nope":1}');
@@ -86,7 +88,7 @@ async function main() {
   cfgLeak = idx.includes('gsk_aner');
   check(!cfgLeak, 'A11 key absent from served html');
 
-  // ---- Part B: spawn preview with an INVALID key -> must fall back to pollinations ----
+  // ---- Part B: spawn preview with an INVALID key -> pollinations still answers first, key unused ----
   const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', '4174', '--strictPort'], {
     cwd: path.join(__dirname, '..'),
     stdio: 'ignore',
@@ -100,10 +102,10 @@ async function main() {
   if (up) {
     const b = await req({ host: 'localhost', port: 4174, path: '/api/ai', method: 'POST', headers: { 'Content-Type': 'application/json' } }, AI_BODY, 35000);
     let bj = null; try { bj = JSON.parse(b.body); } catch {}
-    check(b.status === 200, `B1 invalid groq key still answers via fallback (got ${b.status})`);
-    check(b.headers['x-ai-provider'] === 'pollinations', `B2 provider=pollinations (got ${b.headers['x-ai-provider'] || 'none'})`);
-    check(/^groq_/.test(b.headers['x-ai-fallback'] || ''), `B3 fallback reason recorded (${b.headers['x-ai-fallback'] || 'none'})`);
-    check(!!bj && typeof bj.text === 'string' && bj.text.trim().length > 0, 'B4 non-empty fallback text');
+    check(b.status === 200, `B1 chain still answers with an invalid groq key (got ${b.status})`);
+    check(b.headers['x-ai-provider'] === 'pollinations', `B2 pollinations answers first, key never needed (got ${b.headers['x-ai-provider'] || 'none'})`);
+    check(!b.headers['x-ai-fallback'], `B3 no fallback header - pollinations answered first try (${b.headers['x-ai-fallback'] || 'none'})`);
+    check(!!bj && typeof bj.text === 'string' && bj.text.trim().length > 0, 'B4 non-empty text payload');
   }
   preview.kill();
 

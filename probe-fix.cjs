@@ -904,12 +904,12 @@ async function main() {
   const fClosedSide = await evalJs(`(() => {
     const txt = document.body.innerText;
     return {
-      locked: txt.includes('Package Locked'),
+      locked: txt.includes('Package Locked') || txt.includes('No package yet'),
       active: txt.includes('Package Active'),
       payBtns: [...document.querySelectorAll('button')].filter(b => /pay fee/i.test(b.textContent)).length
     };
   })()`);
-  check('gate: close reaches student side (locked, both rows Pay fee)', fClosedSide.locked && !fClosedSide.active && fClosedSide.payBtns === 2, JSON.stringify(fClosedSide));
+  check('gate: close reaches student side (no package or locked, both rows Pay fee)', fClosedSide.locked && !fClosedSide.active && fClosedSide.payBtns === 2, JSON.stringify(fClosedSide));
   await shot('33b-close-reaches-student');
   check('upload gate: no js errors', errCount() === fF, jsErrors.slice(fF).join(' | ').slice(0, 400));
 

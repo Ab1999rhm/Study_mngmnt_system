@@ -3,14 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { store } from '../data/store.js';
 import { saveBookCtx } from '../data/tutor.js';
-import { keyPoints, makeQuestions, buildBook } from '../data/study.js';
+import { keyPoints, makeQuestions, buildBook, mediaKind } from '../data/study.js';
+import { buildPdfBook, renderPdfPageTo } from '../data/pdfbook.js';
 
 const TIPS = ['captureTip1', 'captureTip2', 'captureTip3'];
 
 export default function StudyReader({ item, user, onClose }) {
   const { t } = useTranslation();
   const nav = useNavigate();
-  const book = useMemo(() => buildBook(item), [item.body, item.fileData, item.fileName, item.title]);
+  const baseBook = useMemo(() => buildBook(item), [item.body, item.fileData, item.fileName, item.title]);
+  const isPdf = mediaKind(item.fileData) === 'pdf';
+  const [pdfBook, setPdfBook] = useState(null);
+  const [pdfState, setPdfState] = useState(isPdf ? 'loading' : 'ready');
+  const book = pdfBook || baseBook;
+  useEffect(() => {
+    if (!isPdf) return;
+    let live = true;
+    setPdfState('loading');
+    buildPdfBook(item)
+      .then(b => { if (live) { if (b) { setPdfBook(b); setPdfState('ready'); } else setPdfState('fail'); } })
+      .catch(e => { console.error('PDF build failed:', e && e.message || e); if (live) setPdfState('fail'); });
+    return () => { live = false; };
+  }, [item.id]);
   const pkey = 'study:' + item.id;
   const saved = ((user && user.progress) || {})[pkey] || null;
 
@@ -27,10 +41,19 @@ export default function StudyReader({ item, user, onClose }) {
   const [conf, setConf] = useState('');
   const [err, setErr] = useState('');
   const timer = useRef(null);
+  const canvasRef = useRef(null);
+  const wrapRef = useRef(null);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const section = book.sections[Math.min(secIdx, book.sections.length - 1)];
+  const absPdfPage = section && section.pdfStart != null ? section.pdfStart + Math.min(pageIdx, section.pages.length - 1) : 0;
+
+  useEffect(() => {
+    if (phase !== 'read' || pdfState !== 'ready' || !section || section.pdfStart == null) return;
+    const w = (wrapRef.current && wrapRef.current.clientWidth) || 720;
+    renderPdfPageTo(canvasRef.current, item.fileData, section.pdfStart + Math.min(pageIdx, section.pages.length - 1), w).catch(() => {});
+  }, [phase, secIdx, pageIdx, pdfState, section, item.fileData]);
   const questions = useMemo(() => makeQuestions(section), [section]);
   const keys = useMemo(() => keyPoints(section), [section]);
   const tipKey = TIPS[secIdx % TIPS.length];
@@ -171,7 +194,7 @@ export default function StudyReader({ item, user, onClose }) {
         </div>
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{done.length}/{total} ✓</span>
         <span style={{ flex: 1 }} />
-        <button className="btn sm" data-testid="ask-ai-book" onClick={askAi}>🤖 {t('askAiBook')}</button>
+        <button className="btn sm" data-testid="ask-ai-book" onClick={askAi} disabled={isPdf && pdfState === 'loading'}>🤖 {t('askAiBook')}</button>
         <button className="btn sm ghost" onClick={close}>✕ {t('studyClose')}</button>
       </header>
 
@@ -203,10 +226,18 @@ export default function StudyReader({ item, user, onClose }) {
         </aside>
 
         <main style={{ flex: 1, overflowY: 'auto', padding: '18px 16px 26px', minWidth: 0 }}>
-          {phase === 'plan' && (
+          {phase === 'plan' && (isPdf && pdfState === 'loading' ? (
+            <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', paddingTop: 64, fontSize: 15, color: 'var(--muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>⏳</div>
+              {t('pdfLoading')}
+            </div>
+          ) : (
             <div style={{ maxWidth: 720, margin: '0 auto' }}>
               <h2 style={{ marginBottom: 6 }}>📚 {t('studyPlan')} — {item.title}</h2>
               <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 14 }}>{t('planIntro')}</p>
+              {isPdf && pdfState === 'fail' && (
+                <div style={{ fontSize: 13.5, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>⚠️ {t('pdfFail')}</div>
+              )}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                 <span className="chip">🗂 {total} {t('studySections')}</span>
                 <span className="chip">📄 {book.pages} {t('studyPages')}</span>
@@ -230,18 +261,25 @@ export default function StudyReader({ item, user, onClose }) {
                   {resumable ? '▶ ' + t('resumeStudy') : '▶ ' + t('startStudying')}
                 </button>
                 {reviewable && <button className="btn amber" onClick={review}>🔁 {t('reviewNow')}</button>}
+                {pdfBook && (
+                  <a className="btn ghost" href={item.fileData} download={item.fileName || item.title}>⬇️ {t('download')}</a>
+                )}
               </div>
             </div>
-          )}
+          ))}
 
           {phase === 'read' && (
             <div style={{ maxWidth: 760, margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                 <h3 style={{ margin: 0 }}>{sectionLabel(section)}</h3>
-                <span className="chip info">{t('secN')} {secIdx + 1}/{total} · {t('page')} {pageIdx + 1}/{section.pages.length}</span>
+                <span className="chip info">{t('secN')} {secIdx + 1}/{total} · {t('page')} {pageIdx + 1}/{section.pages.length}{book.pdf ? ` · 📄 ${absPdfPage}/${book.pdf.numPages}` : ''}</span>
               </div>
-              <div className="card" style={{ padding: section.media ? 12 : '18px 20px', lineHeight: 1.8, fontSize: 15.5 }}>
-                {section.media ? (
+              <div className="card" style={{ padding: section.media || section.pdfStart != null ? 10 : '18px 20px', lineHeight: 1.8, fontSize: 15.5 }}>
+                {section.pdfStart != null ? (
+                  <div ref={wrapRef} style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', textAlign: 'center' }}>
+                    <canvas ref={canvasRef} data-testid="pdf-canvas" style={{ display: 'block', margin: '0 auto' }} />
+                  </div>
+                ) : section.media ? (
                   section.media.kind === 'image' ? (
                     <img src={section.media.src} alt={section.media.name} style={{ width: '100%', maxHeight: '58vh', objectFit: 'contain', display: 'block', margin: '0 auto', background: '#fff', borderRadius: 8 }} />
                   ) : section.media.kind === 'pdf' ? (
